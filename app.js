@@ -192,6 +192,7 @@ function refreshSms() {
 function go(page, remember=true) {
   if (remember && page!==state.page) history.push(state.page);
   state.page=page;
+  study.log("view",page);
   render();
 }
 function finishArchive() {
@@ -208,6 +209,7 @@ function reset() {
 }
 document.addEventListener('invalid', event => {
   const input = event.target;
+  if (input.id) study.log('invalid',state.page,input.id);
   const error = input.closest('.field')?.querySelector('.err');
   if (error) {
     input.setAttribute('aria-invalid','true');
@@ -242,8 +244,13 @@ document.addEventListener('submit',event=>{
     go('method',false);
   }
 });
-document.addEventListener('click',event=>{
+document.addEventListener('click',async event=>{
   const target=event.target.closest('[data-action]');
+  const control=event.target.closest('input,select,button');
+  const code=target?.dataset.action || (control?.form?.id && control.type==='submit'
+    ? control.form.id.replace('-form','-submit') : control?.id || 'background');
+  if (code==='start') study.begin();
+  study.log('click',state.page,code);
   if (!target) return;
   const [action,index]=target.dataset.action.split(':');
   switch(action) {
@@ -297,12 +304,25 @@ document.addEventListener('click',event=>{
       }
       document.querySelector('[form="archive-form"]').focus();
       break;
-    case 'submit': state.receipt=true;go('success',false);break;
+    case 'submit': {
+      target.disabled=true;
+      const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
+        state.slot.day,state.slot.index,Object.values(state.profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
+      if (await study.save(form)) {
+        state.receipt=true;
+        go('success',false);
+      } else {
+        target.disabled=false;
+        if (!bottom.querySelector('.err')) bottom.insertAdjacentHTML('beforeend','<p class="err" role="alert">暂时无法提交，请稍后重试。</p>');
+      }
+      break;
+    }
     case 'apply':
       scenario={expiry:document.querySelector('#expiry').value==='1',delayed:document.querySelector('#delayed').value==='1'};
       reset();
       break;
   }
 });
+study.log("view",state.page);
 render();
 setInterval(refreshSms,250);

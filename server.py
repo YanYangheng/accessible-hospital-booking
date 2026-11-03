@@ -1,0 +1,93 @@
+"""Serve the local prototype and store anonymous usability records."""
+import argparse
+import json
+import re
+import sqlite3
+from contextlib import closing
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlsplit
+
+ROOT = Path(__file__).resolve().parent
+STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/assets/hospital-logo.webp'}
+PAGES = set('home campus department slots login method archive expired confirm success records guide settings'.split())
+CONTROL = re.compile(r'(?:home|start|back|send|archive|guide|records|recover|submit|apply|settings|method|sample|background|phone|code|search|expiry|delayed|archive-submit|login-submit|field-(?:name|id|gender|birthday|height|weight|job|region|address)|(?:campus|department|date|slot):[0-9]{1,2})')
+UUID = re.compile(r'[a-f0-9-]{36}')
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def send_head(self):
+        if urlsplit(self.path).path not in STATIC:
+            self.send_error(404)
+            return None
+        return super().send_head()
+
+    def do_POST(self):
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+            if not 0 < length <= 65536:
+                raise ValueError()
+            body = json.loads(self.rfile.read(length))
+            session = body['session']
+            if not UUID.fullmatch(session):
+                raise ValueError()
+            path = urlsplit(self.path).path
+            with closing(sqlite3.connect(self.server.database, timeout=10)) as db, db:
+                if path == '/api/events':
+                    events = body['events']
+                    if not isinstance(events, list) or not 1 <= len(events) <= 100:
+                        raise ValueError()
+                    for event in events:
+                        seq, ts, kind, page, control = event
+                        if (type(seq) is not int or seq < 1 or type(ts) is not int
+                                or kind not in ('click', 'view', 'invalid')
+                                or page not in PAGES or not CONTROL.fullmatch(control)):
+                            raise ValueError()
+                        db.execute('INSERT OR IGNORE INTO events(session, seq, client_ms, kind, page, control) VALUES(?,?,?,?,?,?)',
+                                   (session, seq, ts, kind, page, control))
+                elif path == '/api/submissions':
+                    campus, department, day, slot, fields = body['form']
+                    values = (campus, department, day, slot, fields)
+                    if any(type(v) is not int or not 0 <= v <= limit
+                           for v, limit in zip(values, (4, 8, 2, 2, 511))):
+                        raise ValueError()
+                    db.execute('INSERT OR IGNORE INTO submissions(session,campus,department,day,slot,fields) VALUES(?,?,?,?,?,?)',
+                               (session, *values))
+                else:
+                    self.send_error(404)
+                    return
+        except (ValueError, KeyError, TypeError, OverflowError):
+            self.send_error(400, 'Invalid record')
+            return
+        except sqlite3.Error:
+            self.send_error(503, 'Storage unavailable')
+            return
+        self.send_response(204)
+        self.end_headers()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8767)
+    parser.add_argument('--bind', default='0.0.0.0')
+    parser.add_argument('--database', type=Path, default=ROOT / 'data' / 'study.sqlite3')
+    args = parser.parse_args()
+    args.database.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(args.database)) as db:
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS events (
+              session TEXT, seq INTEGER, client_ms INTEGER, kind TEXT, page TEXT, control TEXT,
+              received_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(session,seq)
+            );
+            CREATE TABLE IF NOT EXISTS submissions (
+              session TEXT PRIMARY KEY, campus INTEGER, department INTEGER, day INTEGER,
+              slot INTEGER, fields INTEGER, submitted_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+    with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
+        server.database = args.database
+        print(f'Listening on {args.bind}:{args.port}', flush=True)
+        server.serve_forever()
