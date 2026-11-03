@@ -244,7 +244,7 @@ function updateIdentity(input) {
 function handleInput(event) {
   const input=event.target;
   if (input.id==='search') document.querySelector('#dept-list').innerHTML=departmentList(input.value.trim());
-  if (input.form?.id==='archive-form') {
+  if (input.form?.matches('#archive-form')) {
     input.setCustomValidity('');
     state.profile[input.name]=input.value;
     input.removeAttribute('aria-invalid');
@@ -267,7 +267,7 @@ document.addEventListener('input',handleInput);
 document.addEventListener('change',handleInput);
 document.addEventListener('submit',event=>{
   event.preventDefault();
-  if (event.target.id==='archive-form') {
+  if (event.target.matches('#archive-form')) {
     const form=event.target;
     const id=form.elements.namedItem('id');
     updateIdentity(id);
@@ -284,7 +284,7 @@ document.addEventListener('click',async event=>{
   const target=event.target.closest('[data-action]');
   const control=event.target.closest('input,select,button');
   const code=target?.dataset.action || (control?.form?.id && control.type==='submit'
-    ? control.form.id.replace('-form','-submit') : control?.id || 'background');
+    ? control.form.getAttribute('id').replace('-form','-submit') : control?.id || 'background');
   if (code==='archive-submit') document.activeElement?.blur();
   if (code==='start') study.begin();
   study.log('click',state.page,code);
