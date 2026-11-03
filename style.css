@@ -35,3 +35,8 @@ h1,h2,h3,p{margin:0}h1{font-size:27px;line-height:1.25;letter-spacing:-.035em}h2
 .field select:required:invalid{font-weight:400;color:#6c7d93}
 
 #view{scrollbar-gutter:stable}
+
+.region-control{display:block;width:100%;min-height:46px;text-align:left;padding:10px 10px 10px 34px;border:1px solid #b8c9df;border-radius:11px;background:#fff;color:var(--ink);font-size:16px}
+.region-dialog{width:min(358px,calc(100% - 32px));max-height:85dvh;border:1px solid var(--line);border-radius:20px;padding:20px;color:var(--ink)}
+.region-dialog::backdrop{background:#132c5266}
+.region-dialog .ghost{flex:none}
