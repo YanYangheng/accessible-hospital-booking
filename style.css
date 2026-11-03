@@ -23,3 +23,15 @@ h1,h2,h3,p{margin:0}h1{font-size:27px;line-height:1.25;letter-spacing:-.035em}h2
 .input-icon{position:relative;display:block;min-width:0}
 .input-icon>.icon{position:absolute;left:10px;top:50%;width:17px;height:17px;transform:translateY(-50%);color:#657994;pointer-events:none}
 .field .input-icon>input,.field .input-icon>select{padding-left:34px}
+
+.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.form-grid>.field{min-width:0}
+.field input[type="date"]{display:block;appearance:none;-webkit-appearance:none;max-width:100%}
+.field input[type="date"]::-webkit-date-and-time-value{min-width:0;text-align:left}
+
+.progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.progress li{min-width:0}
+.field input::placeholder{font-weight:400;color:#506681;opacity:.72}
+.field select:required:invalid{font-weight:400;color:#6c7d93}
+
+#view{scrollbar-gutter:stable}

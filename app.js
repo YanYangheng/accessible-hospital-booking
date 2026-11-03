@@ -14,6 +14,7 @@ const departments = ['普内科门诊','老年病综合门诊','全科医学科�
 const dates = [['10月13日','周二'],['10月14日','周三'],['10月15日','周四']];
 const times = [['11:00–11:30','11:30–12:00','14:00–14:30'],['08:30–09:00','09:00–09:30','14:00–14:30'],['09:30–10:00','10:00–10:30','14:30–15:00']];
 const paths = {
+  search:'<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/>',
   phone:'<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/>',
   code:'<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 12 2 2 5-5"/>',
   id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="M5.5 15c0-3 5-3 5 0M13 10h5m-5 4h5"/>',
@@ -90,7 +91,7 @@ function render() {
       break;
     case 'department':
       content = progress(0)+intro('选择就诊科室',esc(state.campus)+'')+
-        '<label class="field" for="search">搜索科室<input id="search" class="search" placeholder="例如：普内科" type="search"></label>'+
+        `<label class="field" for="search">搜索科室${withIcon('<input id="search" class="search" placeholder="例如：普内科" type="search">', "search")}</label>`+
         `<div class="stack below" id="dept-list">${departmentList('')}</div>`;
       break;
     case 'slots':
@@ -162,7 +163,7 @@ function render() {
       content = intro('','从首页启动下一次演示，统一任务情境。')+
         `<section class="card"><label class="field"><span>建档完成时的号源状态</span><select id="expiry"><option value="0">原号源仍可用</option><option value="1" ${scenario.expiry?'selected':''}>原号源失效，触发重选</option></select></label>
         <label class="field"><span>短信发送情境</span><select id="delayed"><option value="0">首次收到验证码</option><option value="1" ${scenario.delayed?'selected':''}>首次未收到，重发后收到</option></select></label>
-        <p class="footnote">开始新一轮时会清除当前表单和预约记录。验证码重发等待缩短为 10 秒。</p></section>`;
+        <p class="footnote">开始新一轮时会清除当前表单和预约记录。验证码重发等待设为 30 秒。</p></section>`;
       footer = btn('应用设置并返回首页','apply');
       break;
   }
@@ -275,7 +276,7 @@ document.addEventListener('click',event=>{
       const phone=document.querySelector('#phone');
       if (!phone.reportValidity()) break;
       state.sends++;
-      state.resendAt=Date.now()+10000;
+      state.resendAt=Date.now()+30000;
       document.querySelector('#code').setCustomValidity('');
       document.querySelector('#sms-status').textContent=smsStatus();
       refreshSms();
