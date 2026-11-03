@@ -54,8 +54,14 @@ class Handler(SimpleHTTPRequestHandler):
                     if any(type(v) is not int or not 0 <= v <= limit
                            for v, limit in zip(values, (4, 8, 2, 2, 511))):
                         raise ValueError()
-                    db.execute('INSERT OR IGNORE INTO submissions(session,campus,department,day,slot,fields) VALUES(?,?,?,?,?,?)',
-                               (session, *values))
+                    details = body['details']
+                    if not isinstance(details, list) or len(details) != 5 or any(
+                            not isinstance(value, str) or len(value) > limit
+                            for value, limit in zip(details, (20, 18, 11, 6, 100))):
+                        raise ValueError()
+                    db.execute("""INSERT OR IGNORE INTO submissions
+                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address)
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (session, *values, *details))
                 else:
                     self.send_error(404)
                     return
@@ -87,6 +93,11 @@ if __name__ == '__main__':
               slot INTEGER, fields INTEGER, submitted_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        columns = {row[1] for row in db.execute('PRAGMA table_info(submissions)')}
+        for column in ('name', 'id_number', 'phone', 'verification_code', 'address'):
+            if column not in columns:
+                db.execute(f'ALTER TABLE submissions ADD COLUMN {column} TEXT')
+        db.commit()
     with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
         server.database = args.database
         print(f'Listening on {args.bind}:{args.port}', flush=True)

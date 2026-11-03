@@ -120,10 +120,10 @@ function render() {
       break;
     case 'archive':
       content = progress(2)+intro('首次就诊建档','完成建档后，您将返回预约确认。')+summary('已选择')+
-        `<form id="archive-form" autocomplete="off"><section class="card"><h2>身份信息</h2><p class="muted">用于识别就诊人，请核对身份信息。</p>
+        `<form id="archive-form" novalidate autocomplete="off"><section class="card"><h2>身份信息</h2><p class="muted">用于识别就诊人，请核对身份信息。</p>
         ${field('姓名','name',{attrs:'maxlength="20" placeholder="请输入姓名"'})}
         ${field('证件号码（居民身份证）','id',{attrs:'maxlength="18" pattern="[0-9]{17}[0-9Xx]" placeholder="18 位身份证号码"'})}
-        <div class="form-grid">${field('性别','gender',{choices:['女','男']})}${field('出生日期','birthday',{type:'date',attrs:'min="1900-01-01" max="2026-10-13"'})}</div>
+        <div class="form-grid">${field('性别','gender',{attrs:'readonly placeholder="自动识别"'})}${field('出生日期','birthday',{attrs:'readonly placeholder="自动识别"'})}</div>
         <p class="muted below">国籍或地区：中国大陆</p></section>
         <section class="card below"><h2>补充建档资料</h2><p class="muted">请补充就诊人资料。</p>
         <div class="form-grid">${field('身高（厘米）','height',{type:'number',attrs:'min="30" max="250" step="0.1"'})}${field('体重（公斤）','weight',{type:'number',attrs:'min="2" max="350" step="0.1"'})}</div>
@@ -216,13 +216,40 @@ document.addEventListener('invalid', event => {
     error.textContent = input.validity.valueMissing ? '请填写或选择此项。' : input.validationMessage;
   }
 }, true);
-document.addEventListener('input',event=>{
+function updateIdentity(input) {
+  const value=input.value;
+  const error=input.closest('.field').querySelector('.err');
+  let message='', birthday='', gender='';
+  if (value.length===18) {
+    const weights=[7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2];
+    const sum=weights.reduce((total,weight,i)=>total+Number(value[i])*weight,0);
+    const date=value.slice(6,10)+'-'+value.slice(10,12)+'-'+value.slice(12,14);
+    const parsed=new Date(date);
+    if (!/^[0-9]{17}[0-9Xx]$/.test(value)) message='请输入正确格式的身份证号码。';
+    else if ('10X98765432'[sum%11]!==value[17].toUpperCase()) message='身份证号码末位校验不通过，请核对证件号码。';
+    else if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0,10)!==date || parsed>Date.now()) message='身份证号码中的出生日期无效。';
+    else {
+      birthday=date;
+      gender=Number(value[16])%2?'男':'女';
+    }
+  }
+  input.setCustomValidity(message);
+  error.textContent=message;
+  input.toggleAttribute('aria-invalid',Boolean(message));
+  if (message) input.setAttribute('aria-invalid','true');
+  state.profile.birthday=input.form.elements.namedItem('birthday').value=birthday;
+  state.profile.gender=input.form.elements.namedItem('gender').value=gender;
+}
+
+function handleInput(event) {
   const input=event.target;
   if (input.id==='search') document.querySelector('#dept-list').innerHTML=departmentList(input.value.trim());
   if (input.form?.id==='archive-form') {
+    input.setCustomValidity('');
     state.profile[input.name]=input.value;
     input.removeAttribute('aria-invalid');
     input.closest('.field').querySelector('.err').textContent='';
+    if (input.name==='id') updateIdentity(input);
   }
   if (input.form?.id==='login-form') {
     input.setCustomValidity('');
@@ -235,10 +262,19 @@ document.addEventListener('input',event=>{
     }
     state[input.name]=input.value;
   }
-});
+}
+document.addEventListener('input',handleInput);
+document.addEventListener('change',handleInput);
 document.addEventListener('submit',event=>{
   event.preventDefault();
-  if (event.target.id==='archive-form') finishArchive();
+  if (event.target.id==='archive-form') {
+    const form=event.target;
+    const id=form.elements.namedItem('id');
+    updateIdentity(id);
+    if (!form.reportValidity()) return;
+    for (const [key,value] of new FormData(form)) state.profile[key]=value;
+    finishArchive();
+  }
   if (event.target.id==='login-form') {
     state.verified=true;
     go('method',false);
@@ -249,6 +285,7 @@ document.addEventListener('click',async event=>{
   const control=event.target.closest('input,select,button');
   const code=target?.dataset.action || (control?.form?.id && control.type==='submit'
     ? control.form.id.replace('-form','-submit') : control?.id || 'background');
+  if (code==='archive-submit') document.activeElement?.blur();
   if (code==='start') study.begin();
   study.log('click',state.page,code);
   if (!target) return;
@@ -295,7 +332,7 @@ document.addEventListener('click',async event=>{
       go('slots',false);
       break;
     case 'sample':
-      Object.assign(state.profile,{name:'测试用户',id:'000000196010130000',gender:'女',birthday:'1960-10-13',height:'160',weight:'56',job:'退休',region:'浙江省杭州市滨江区',address:'演示路 1 号'});
+      Object.assign(state.profile,{name:'测试用户',id:'00000019601013000X',gender:'女',birthday:'1960-10-13',height:'160',weight:'56',job:'退休',region:'浙江省杭州市滨江区',address:'演示路 1 号'});
       for(const field of document.querySelector('#archive-form').elements) {
         if (field.name in state.profile) {
           field.value=state.profile[field.name];
@@ -308,7 +345,7 @@ document.addEventListener('click',async event=>{
       target.disabled=true;
       const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
         state.slot.day,state.slot.index,Object.values(state.profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
-      if (await study.save(form)) {
+      if (await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address])) {
         state.receipt=true;
         go('success',false);
       } else {
