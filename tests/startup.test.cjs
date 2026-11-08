@@ -117,10 +117,12 @@ test('random confirmation preview uses available slots and renders a complete de
     assert.ok(booking.dates[state.slot.day].slots[state.slot.index]);
     assert.match(app.html(),/确认预约信息/);
     assert.match(app.html(),/card summary doctor-summary/);
-    assert.match(app.html(),/<dt>就诊时间<\/dt>.*<dt>科室<\/dt>.*<dt>科室位置<\/dt>.*<dt>院区地址<\/dt>.*<dt>门诊类型<\/dt>/s);
+    assert.deepEqual([...app.html().matchAll(/<dt>(.*?)<\/dt>/g)].map(match=>match[1]),
+      ['院区地址','就诊时间','就诊科室','科室位置','门诊类型','就诊人','手机号','就诊档案','挂号费用']);
     const {building, floor, number}=booking.doctors[state.doctor].room;
-    assert.ok(app.html().includes(`${state.campus} · ${building}号楼 ${floor}层 ${number}室`));
-    assert.ok(app.html().includes(booking.campuses.find(([name])=>name===state.campus)[1]));
+    assert.ok(app.html().includes(`<dd>${building}号楼 ${floor}层 ${number}室</dd>`));
+    const address=booking.campuses.find(([name])=>name===state.campus)[1];
+    assert.ok(app.html().includes(`<dd>${address} · ${state.campus}</dd>`));
     assert.match(app.html(),/测试用户/);
     assert.equal(app.calls.length,0);
     selections.add(JSON.stringify([state.campus,state.doctor,state.slot]));
