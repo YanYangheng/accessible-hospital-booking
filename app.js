@@ -64,6 +64,10 @@ function summary(label, selected=state.slot) {
   return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · ${esc(window.BOOKING_DOCTORS[state.doctor]?.name || '普通号')}</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]} · ${slotType(selected.index)}</p></section>`;
 }
 
+function doctorSummary(selected=null) {
+  return `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><div class="doctor-heading"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><span class="doctor-title">${esc(window.BOOKING_DOCTORS[state.doctor].title)}</span></div><p>${dates[selected?selected.day:state.date].join(' ')}${selected?' · '+times[selected.day][selected.index]:''} · ${esc(state.dept)}${selected?' · '+slotType(selected.index):''}</p></div></section>`;
+}
+
 const withIcon = (input, symbol) => `<span class="input-icon">${icon(symbol)}${input}</span>`;
 
 function field(label, key, options={}) {
@@ -145,7 +149,7 @@ function render(preserveScroll=false) {
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
-        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><div class="doctor-heading"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><span class="doctor-title">${esc(window.BOOKING_DOCTORS[state.doctor].title)}</span></div><p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p></div></section>
+        `${doctorSummary()}
         <div class="row"><h2>当天可选时段</h2></div>
         <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
@@ -153,7 +157,7 @@ function render(preserveScroll=false) {
         <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
       break;
     case 'login':
-      content = progress(1)+intro('登录账号','手机号码验证登录')+summary('已选择')+
+      content = progress(1)+intro('登录账号','手机号码验证登录')+doctorSummary(state.slot)+
         `<form id="login-form" class="card" autocomplete="off"><label class="field" for="phone">手机号码
         ${withIcon(`<input id="phone" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入11位手机号" value="${esc(state.phone)}" required pattern="1[0-9]{10}">`, "phone")}</label>
         <div class="sms-row"><label class="field" for="code">短信验证码${withIcon(`<input id="code" name="code" inputmode="numeric" maxlength="6" placeholder="请输入 6 位验证码" value="${esc(state.code)}" required pattern="[0-9]{6}">`, "code")}</label>

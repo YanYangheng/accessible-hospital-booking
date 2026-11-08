@@ -98,3 +98,5 @@ html,body{touch-action:pan-x pan-y}
 .slot-price{font-size:15px;font-weight:650;white-space:nowrap}
 
 #sms-status:empty{display:none}
+
+#login-form>.field[for="phone"]{margin-top:0}
