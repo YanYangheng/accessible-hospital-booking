@@ -56,7 +56,7 @@ function debugState(page, randomize = false) {
   sample.date = sample.dateAnchor = day;
   sample.slot = {day, index:pick(booking.dates[day].slots.map((_, index) => index))};
 
-  if (['method','archive','guide','expired','confirm','success','records'].includes(page)) {
+  if (['method','archive','expired','confirm','success','records'].includes(page)) {
     sample.verified = true;
     sample.phone = '13800000000';
     sample.code = '012345';
@@ -66,7 +66,6 @@ function debugState(page, randomize = false) {
     Object.assign(sample.profile, {name:'测试用户',id:'00000019601013000X',gender:'女',
       birthday:'1960-10-13',height:'160',weight:'56',job:booking.jobs[0],address:'演示路 1 号'});
   }
-  if (page === 'guide') sample.guideContext = 'campus';
   if (page === 'expired') sample.expired = {...sample.slot, doctor:sample.doctor};
   sample.receipt = page === 'success' || page === 'records';
   return sample;

@@ -35,7 +35,7 @@ const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="c
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
   page:'cover', guideContext:null, doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
-  verified:false, archived:false, offlineArchive:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
+  verified:false, archived:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
 let state = fresh();
@@ -132,7 +132,7 @@ window.addEventListener('popstate',event=>{
     state={...fresh(),...entry.snapshot.state};
     if(sameAttempt) {
       state.profile={...state.profile,...latest.profile};
-      for(const key of ['phone','code','verified','archived','offlineArchive','receipt']) state[key]=latest[key];
+      for(const key of ['phone','code','verified','archived','receipt']) state[key]=latest[key];
     }
     scenario={...entry.snapshot.scenario};history=[...entry.snapshot.history];
   } else { state=fresh();history=[]; }
@@ -283,9 +283,8 @@ function go(page, remember=true) {
   study.log("view",page);
   render();
 }
-function finishArchive(offline=false) {
+function finishArchive() {
   state.archived=true;
-  state.offlineArchive=offline;
   if (scenario.expiry && !state.expired) {
     state.expired={...state.slot,doctor:state.doctor};
     go('expired',false);
@@ -537,12 +536,6 @@ document.addEventListener('click',async event=>{
     case 'records':
     case 'settings': go(action);break;
     case 'guide': state.guideContext=index==='home'?'home':'campus';go('guide');break;
-    case 'offline-archive':
-      if(state.page==='guide' && state.guideContext==='campus' && state.verified && state.slot) {
-        study.log('result','guide','offline-archive',{result:'offline_archive_selected'});
-        finishArchive(true);
-      }
-      break;
     case 'field-region': openRegion(target);break;
     case 'send': {
       const phone=document.querySelector('#phone');
@@ -590,11 +583,10 @@ document.addEventListener('click',async event=>{
     }
     case 'submit': {
       target.disabled=true;
-      const profile=state.offlineArchive ? {} : {...state.profile};
       const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
-        state.slot.day,state.slot.index,Object.values(profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
+        state.slot.day,state.slot.index,Object.values(state.profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
       const activeAttempt=study.identity()?.attempt;
-      const saved=await study.save(form,[profile.name??'',profile.id??'',state.phone,state.code,profile.address??''],state.doctor,profile,state.offlineArchive?'offline':'online');
+      const saved=await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address],state.doctor,{...state.profile});
       if(study.identity()?.attempt!==activeAttempt) break;
       if (saved) {
         study.log('result',state.page,'submit',{result:'submission_saved'});

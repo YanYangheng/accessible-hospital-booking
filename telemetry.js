@@ -198,12 +198,12 @@ const study = (() => {
     store(key, record);
     if (!timer && !busy) schedule();
   }
-  async function save(form, details, doctor, profile, archiveMethod = 'online') {
+  async function save(form, details, doctor, profile) {
     if (mode === 'debug') return true;
     if (mode !== 'record' || !attempt) return false;
     const epoch = generation;
     try {
-      const response = await post('/api/submissions', {session, attempt, form, details, doctor, profile, archive_method: archiveMethod});
+      const response = await post('/api/submissions', {session, attempt, form, details, doctor, profile});
       return response.ok && epoch === generation;
     } catch { return false; }
   }

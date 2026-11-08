@@ -30,27 +30,22 @@ pageViews.home = () => {
 };
 
 pageViews.guide = () => {
-  const general=state.guideContext==='home'||!state.campus;
-  if (general) return {
-    content:intro('首次就诊准备','了解建档、预约与到院就诊的基本步骤。')+
-      `<section class="card below guide-card"><img class="guide-image" style="--guide-crop:${398 / 1024 * 100}%" src="${booking.guideImages.home}" width="1024" height="1536" alt="首次就诊准备。准备身份证件和手机，填写建档资料，确认预约后携带证件到院。需要人工协助时，可到所选院区门诊服务台咨询。" loading="lazy" decoding="async"></section>`,
-    footer:btn('返回上一页','back')
-  };
-
-  const steps = [
-    ['calendar','线上确认预约','核对医生和就诊时段，提交预约。'],
-    ['id','携带证件提前到院','请携带本人有效身份证件，提前一小时到达所选院区。'],
-    ['person','到门诊服务台建档','出示证件和预约信息，由工作人员协助建档。'],
-    ['success','建档后报到候诊','按预约时段到相应诊区报到。']
-  ];
-  const flow=steps.map(([symbol,title,note])=>`<li><span class="choiceIcon">${icon(symbol)}</span>
-    <div><strong>${title}</strong><p class="muted">${note}</p></div></li>`).join('');
-  return {
-    content:progress(2)+intro('线下人工协助建档','您可以先在线完成预约，再携带证件到院建档。')+
-      `<section class="card below"><h2>${esc(state.campus)}办理流程</h2><ol class="archive-flow">${flow}</ol>
-        <p class="footnote">具体办理地点以院区指引为准。</p></section>`,
-    footer:state.verified&&state.slot?btn('下一步','offline-archive'):btn('返回上一页','back')
-  };
+  let content;
+  let footer = '';
+  const campusIndex=campusData.findIndex(([name])=>name===state.campus);
+  const general=state.guideContext==='home'||campusIndex<0;
+  const image=general?booking.guideImages.home:booking.guideImages.campuses[campusIndex];
+  // Hero edges measured in the 1024 px wide source illustrations.
+  const heroEnd = general ? 398 : [400, 425, 445, 455, 386][campusIndex];
+  const crop = heroEnd / 1024 * 100;
+  const description=general
+    ? '首次就诊准备。准备身份证件和手机，在线核对身份并填写建档资料，确认医生、日期和时段，携带证件按预约安排到院。如需人工协助，可到所选院区门诊服务台咨询。具体安排以院区公告为准。'
+    : state.campus+'人工建档办理指引。携带本人有效身份证件，到门诊服务台说明需求，在工作人员协助下核对资料，完成建档后返回线上预约。具体办理地点和时间以院区公告为准。';
+  content=intro(general?'首次就诊准备':'到院人工协助',general?'了解建档、预约与到院就诊的基本步骤。':'适合希望在工作人员协助下建档的就诊人。')+
+    (general?'':callout('当前尚未预约','此处提供建档办理指引。完成办理后，可再次进入线上预约。','warn'))+
+    `<section class="card below guide-card"><img class="guide-image" style="--guide-crop:${crop}%" src="${image}" width="1024" height="1536" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
+  footer=btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
+  return {content, footer};
 };
 
 pageViews.settings = () => {
