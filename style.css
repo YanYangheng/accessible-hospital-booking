@@ -161,3 +161,8 @@ html,body{touch-action:pan-x pan-y}
 .doctor-row{grid-template-columns:48px minmax(0,1fr) auto}
 .doctor-row .doctor-avatar{width:48px;height:48px}
 }
+
+.success-heading{display:flex;align-items:center;gap:8px}
+.success-heading .icon{width:28px;height:28px;color:#17774d}
+.cancel-booking{width:100%;min-height:48px;padding:10px 14px;border:1px solid #b93031;border-radius:13px;background:transparent;color:#b93031;font-weight:700}
+.cancel-booking:disabled{opacity:.58}

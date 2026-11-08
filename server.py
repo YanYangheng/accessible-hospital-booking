@@ -91,6 +91,8 @@ def initialize_database(path, booking):
             db.execute(f"INSERT INTO submissions(attempt,{','.join(names)}) "
                        f"SELECT 'legacy-'||session,{','.join(names)} FROM submissions_legacy")
             db.execute('DROP TABLE submissions_legacy')
+        if not any(row[1] == 'cancelled_at' for row in db.execute('PRAGMA table_info(submissions)')):
+            db.execute('ALTER TABLE submissions ADD COLUMN cancelled_at TEXT')
         db.execute('CREATE INDEX IF NOT EXISTS submissions_session ON submissions(session)')
         for doctor in booking['doctors']:
             room = doctor['room']
@@ -223,12 +225,19 @@ class Handler(SimpleHTTPRequestHandler):
                         require(db.execute('SELECT session FROM attempts WHERE attempt=?', (attempt,)).fetchone()[0] == session)
                     elif path == '/api/events':
                         result = self.save_events(db, session, body['events'])
+                    elif path == '/api/cancellations':
+                        attempt = identifier(body['attempt'])
+                        row = db.execute('''UPDATE submissions
+                            SET cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP)
+                            WHERE attempt = ? AND session = ?''', (attempt, session))
+                        require(row.rowcount == 1)
                     elif path == '/api/submissions':
+                        db.execute('BEGIN IMMEDIATE')
                         attempt = identifier(body['attempt'])
                         require(db.execute('SELECT 1 FROM attempts WHERE attempt=? AND session=?', (attempt, session)).fetchone())
                         form, details, doctor, clinic, fee, snapshot = validate_submission(body, self.server.booking, self.server.regions)
-                        previous = db.execute('SELECT snapshot FROM submissions WHERE attempt=?', (attempt,)).fetchone()
-                        if previous and previous[0] != snapshot:
+                        previous = db.execute('SELECT snapshot,cancelled_at FROM submissions WHERE attempt=?', (attempt,)).fetchone()
+                        if previous and (previous[0] != snapshot or previous[1] is not None):
                             self.respond(409, {'error': 'attempt_already_submitted'})
                             return
                         db.execute('''INSERT OR IGNORE INTO submissions

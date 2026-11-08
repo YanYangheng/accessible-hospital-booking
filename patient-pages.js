@@ -43,15 +43,13 @@ pageViews.archive = () => {
   return {content, footer};
 };
 
-pageViews.confirm = () => {
-  let content;
-  let footer = '';
+function visitDetails() {
   const {building, floor, number} = booking.doctors[state.doctor].room;
   const location = `${building}号楼 ${floor}层 ${number}室`;
   const campusAddress = campusData.find(([name]) => name === state.campus)?.[1] ?? '';
   const {day, index} = state.slot;
   const visitTime = `${dates[day].join(' ')} · ${times[day][index]}`;
-  const details = [
+  return [
     ['院区地址', esc(`${campusAddress} · ${state.campus}`)],
     ['就诊时间', esc(visitTime)],
     ['就诊科室', esc(state.dept)],
@@ -62,22 +60,37 @@ pageViews.confirm = () => {
     ['就诊档案', '建档已完成'],
     ['挂号费用', slotFee(index, day)]
   ];
-  content = progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+doctorSummary(state.slot)+
-    `<section class="card"><h2>本次就诊</h2>${pairList(details)}</section>
-    <p class="footnote">请核对信息后提交。</p>`;
-  footer = btn('提交预约','submit');
-  return {content, footer};
-};
+}
+
+function visitCard() {
+  return `<section class="card"><h2>本次就诊</h2>${pairList(visitDetails())}</section>`;
+}
+
+pageViews.confirm = () => ({
+  content: progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+doctorSummary(state.slot)+
+    visitCard()+'<p class="footnote">请核对信息后提交。</p>',
+  footer: btn('提交预约','submit')
+});
 
 pageViews.records = () => {
   let content;
   let footer = '';
   content = state.receipt
-    ? intro(state.page==='success'?'预约成功':'我的预约','请按预约时段到院。')+summary('预约已确认')+
+    ? intro('我的预约','请按预约时段到院。')+summary('预约已确认')+
       callout('就诊提醒','请提前到达院区，按医院实际安排报到候诊。','success')
     : intro('我的预约','还没有预约记录。');
   footer = btn('返回首页','home');
   return {content, footer};
 };
 
-pageViews.success = pageViews.records;
+pageViews.success = () => {
+  if (!state.receipt) return {
+    content:progress(3)+intro('预约已取消','您可以返回首页重新选择号源。'),
+    footer:btn('返回首页','home')
+  };
+  return {
+    content:progress(4)+`<div class="intro"><h1 class="success-heading">${icon('success')}预约成功</h1>
+      <p class="muted">请按预约时段到院。</p></div>`+doctorSummary(state.slot)+visitCard(),
+    footer:btn('取消预约','cancel-booking','cancel-booking')
+  };
+};

@@ -114,6 +114,18 @@ class ServerTests(unittest.TestCase):
                          [('ordinary', 1530), ('special', 8250)])
         self.assertEqual(self.post('/api/submissions', submission(slot=3))[0], 409)
 
+    def test_cancel_preserves_submission_and_rejects_replay(self):
+        self.assertEqual(self.post('/api/submissions', submission())[0], 204)
+        cancellation = dict(session=SESSION, attempt=ATTEMPT)
+        self.assertEqual(self.post('/api/cancellations', dict(cancellation, attempt='c' * 36))[0], 400)
+        self.assertEqual(self.post('/api/cancellations', cancellation)[0], 204)
+        stored = self.rows('SELECT attempt,cancelled_at FROM submissions')
+        self.assertEqual(stored[0][0], ATTEMPT)
+        self.assertIsNotNone(stored[0][1])
+        self.assertEqual(self.post('/api/cancellations', cancellation)[0], 204)
+        self.assertEqual(self.post('/api/submissions', submission())[0], 409)
+        self.assertEqual(self.rows('SELECT attempt,cancelled_at FROM submissions'), stored)
+
     def test_invalid_forms_and_unknown_sessions(self):
         cases = []
         bad = submission(); bad['details'][1] = '000000196010130000'; cases.append(bad)

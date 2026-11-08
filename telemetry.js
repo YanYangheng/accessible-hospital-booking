@@ -207,6 +207,15 @@ const study = (() => {
       return response.ok && epoch === generation;
     } catch { return false; }
   }
+  async function cancelBooking() {
+    if (mode === 'debug') return true;
+    if (mode !== 'record' || !attempt) return false;
+    const epoch = generation;
+    try {
+      const response = await post('/api/cancellations', {session, attempt});
+      return response.ok && epoch === generation;
+    } catch { return false; }
+  }
   function sendOnExit() {
     if (mode !== 'record') return;
     checkpoint();
@@ -231,7 +240,7 @@ const study = (() => {
       else { restore(); schedule(0); }
     });
   }
-  return {begin, beginAttempt, log, save, resume, getProgress, identity, clear, pause,
+  return {begin, beginAttempt, log, save, cancelBooking, resume, getProgress, identity, clear, pause,
     setSnapshotReader(reader) { snapshotReader = reader; },
     selectAttempt(value) { if (mode === 'record') attempt = value; }
   };

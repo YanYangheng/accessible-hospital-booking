@@ -21,6 +21,8 @@ const paths = {
   phone:'<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/>',
   code:'<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 12 2 2 5-5"/>',
   id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="M5.5 15c0-3 5-3 5 0M13 10h5m-5 4h5"/>',
+  home:'<path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/>',
+  success:'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
   back:'<path d="m14 6-6 6 6 6"/>', next:'<path d="m9 6 6 6-6 6"/>',
   special:'<path d="M12 2 4 5v6c0 5 8 11 8 11s8-6 8-11V5Z"/><path d="m12 6 1.5 3 3.5.5-2.5 2.5.6 3.5-3.1-1.6-3.1 1.6.6-3.5L7 9.5l3.5-.5Z"/>',
   calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v5m10-5v5M3 11h18m-13 5h2m4 0h2"/>',
@@ -209,7 +211,11 @@ function render(preserveScroll=false) {
   const isCover=state.page==='cover';
   document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
-  topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
+  const isSuccess = state.page === 'success';
+  const headerButton = isSuccess
+    ? `<button type="button" class="back" data-action="home" aria-label="返回首页">${icon('home')}</button>`
+    : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`;
+  topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : headerButton}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
   topBar.hidden=isCover;
   const {content, footer} = pageViews[state.page]();
   portraitObserver.disconnect();
@@ -556,6 +562,22 @@ document.addEventListener('click',async event=>{
       }
       document.querySelector('[form="archive-form"]').focus();
       break;
+    case 'cancel-booking': {
+      if(state.page!=='success' || !state.receipt || target.disabled || !window.confirm('确定取消本次预约吗？')) break;
+      target.disabled=true;
+      const attempt=study.identity()?.attempt;
+      const cancelled=await study.cancelBooking();
+      if(study.identity()?.attempt!==attempt) break;
+      if(cancelled) state.receipt=false;
+      study.log('result', 'success', 'cancel-booking', {result:cancelled?'booking_cancelled':'cancel_failed'});
+      if(state.page!=='success') break;
+      if(cancelled) render();
+      else {
+        target.disabled=false;
+        if(!bottom.querySelector('.err')) bottom.insertAdjacentHTML('beforeend','<p class="err" role="alert">暂时无法取消，请稍后重试。</p>');
+      }
+      break;
+    }
     case 'submit': {
       target.disabled=true;
       const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
