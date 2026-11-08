@@ -63,3 +63,10 @@ html,body{touch-action:pan-x pan-y}
 .doctor-days .day small{font-size:12px}
 .doctor-days .day:disabled{background:#f3f5f8;color:#7a8797;border-color:#e0e5eb}
 .doctor-row .fully-booked{background:#fff0f1;border-color:#edb7be;color:#ae3745;opacity:1}
+
+.doctor-days{display:flex;position:relative;overflow-x:auto;gap:6px;scroll-snap-type:x proximity;scrollbar-width:none;margin-bottom:8px;-webkit-overflow-scrolling:touch}
+.doctor-days::-webkit-scrollbar{display:none}
+.doctor-days .day{flex:0 0 calc((100% - 18px)/4);scroll-snap-align:start}
+.date-scroll-hint{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;color:#506681;font-size:12px}
+.date-scroll-track{position:relative;width:64px;height:4px;flex:none;border-radius:4px;background:#d9e5f5}
+.date-scroll-track i{position:absolute;left:0;top:0;height:100%;background:var(--blue);border-radius:4px}
