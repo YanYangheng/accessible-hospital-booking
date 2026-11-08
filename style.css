@@ -49,12 +49,13 @@ html,body{touch-action:pan-x pan-y}
 .booking-tabs button[aria-pressed=true]{color:var(--blue);border-bottom-color:var(--blue);background:#edf5ff;font-weight:700}
 .doctor-days{margin-bottom:18px}
 .doctor-list{background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}
-.doctor-row{display:flex;align-items:center;gap:10px;padding:18px 12px;border-bottom:1px solid var(--line)}
+.doctor-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:10px;padding:14px 12px;border-bottom:1px solid var(--line)}
 .doctor-row:last-child{border-bottom:0}
-.doctor-avatar{width:54px;height:54px;flex:none;border-radius:50%;background-image:url('assets/doctors-grid.png');background-size:500% 500%;background-repeat:no-repeat}
+.doctor-avatar{width:64px;height:64px;border-radius:50%;background-image:url('assets/doctors-grid.png');background-size:500% 500%;background-repeat:no-repeat}
 .doctor-copy{flex:1;min-width:0}
 .doctor-copy h2{font-size:18px}
-.doctor-title{font-size:12px;color:var(--muted);margin:2px 0 5px}
+.doctor-heading{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;row-gap:2px;margin-bottom:4px}
+.doctor-title{font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap}
 .doctor-bio{font-size:13px;color:var(--muted);line-height:1.5}
 .doctor-row .secondary{flex:none;padding:7px 10px;min-height:42px;font-size:14px}
 
@@ -69,7 +70,4 @@ html,body{touch-action:pan-x pan-y}
 .more-date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0}
 .more-date:focus-within{outline:3px solid #659afa;outline-offset:2px}
 
-/* Match the square portrait to the content height inside each doctor row. */
-.doctor-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto}
-.doctor-avatar{width:auto;height:100%;aspect-ratio:1;min-width:0;align-self:stretch}
 .doctor-bio{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

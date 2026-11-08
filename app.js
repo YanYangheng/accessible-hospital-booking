@@ -109,7 +109,7 @@ function render() {
       if(state.mode==='date') content+=dateChoices();
       content+=`<div class="doctor-list">${window.BOOKING_DOCTORS.filter(d=>d.department===departments.indexOf(state.dept) && (state.mode==='doctor' || d.schedule[state.date]!=='off')).map(d=>`
         <article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
-        <div class="doctor-copy"><h2>${d.name}</h2><p class="doctor-title">${d.title}</p><p class="doctor-bio">${d.bio}</p></div>
+        <div class="doctor-copy"><div class="doctor-heading"><h2>${d.name}</h2><span class="doctor-title">${d.title}</span></div><p class="doctor-bio">${d.bio}</p></div>
         <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>`).join('')}</div>`;
       if(state.mode==='doctor' && state.doctor!==null) {
         content+=`<section class="card below"><h2>${window.BOOKING_DOCTORS[state.doctor].name} · 选择日期</h2>${dateChoices()}${window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>`;
