@@ -166,18 +166,18 @@ function render(preserveScroll=false) {
       footer = '<button class="primary" type="submit" form="login-form">验证并继续</button>';
       break;
     case 'method':
-      content = progress(2)+intro('选择建档方式','首次在本院线上预约，需先建立就诊人档案。')+summary('已选择')+
+      content = progress(2)+intro('选择建档方式','首次在本院线上预约，需先建立就诊人档案。')+doctorSummary(state.slot)+
         `<div class="stack">${choice('在线建档','一次核对并填写资料，完成后继续预约','archive','file')}
         ${choice('到院人工协助','查看办理材料、地点和后续步骤','guide','person')}</div>`;
       break;
     case 'archive':
-      content = progress(2)+intro('首次就诊建档','完成建档后，您将返回预约确认。')+summary('已选择')+
-        `<form id="archive-form" novalidate autocomplete="off"><section class="card"><h2>身份信息</h2><p class="muted">用于识别就诊人，请核对身份信息。</p>
+      content = progress(2)+intro('首次就诊建档','完成建档后，您将返回预约确认。')+doctorSummary(state.slot)+
+        `<form id="archive-form" novalidate autocomplete="off"><section class="card"><h2>身份信息</h2><p class="muted">请准确填写身份信息。</p>
         ${field('姓名','name',{attrs:'maxlength="20" placeholder="请输入姓名"'})}
         ${field('证件号码（居民身份证）','id',{attrs:'maxlength="18" pattern="[0-9]{17}[0-9Xx]" placeholder="18 位身份证号码"'})}
         <div class="form-grid">${field('性别','gender',{attrs:'readonly placeholder="自动识别"'})}${field('出生日期','birthday',{attrs:'readonly placeholder="自动识别"'})}</div>
-        <p class="muted below">国籍或地区：中国大陆</p></section>
-        <section class="card below"><h2>补充建档资料</h2><p class="muted">请补充就诊人资料。</p>
+        </section>
+        <section class="card below"><h2>建档资料</h2><p class="muted">请补充就诊人资料。</p>
         <div class="form-grid">${field('身高（厘米）','height',{type:'number',attrs:'min="30" max="250" step="0.1"'})}${field('体重（公斤）','weight',{type:'number',attrs:'min="2" max="350" step="0.1"'})}</div>
         ${field('职业','job',{choices:['退休','在职','学生','其他']})}
         ${`<div class="field"><span id="region-label">所在地区</span>
