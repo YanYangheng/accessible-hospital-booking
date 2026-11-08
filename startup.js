@@ -45,15 +45,16 @@ async function enterLinkedTest() {
   }
 }
 
-function debugState(page) {
+function debugState(page, randomize = false) {
   const sample = fresh();
-  const doctor = booking.doctors[0];
-  const day = doctor.schedule.indexOf('available');
-  sample.campus = campusData[0][0];
+  const pick = items => items[randomize ? Math.floor(Math.random() * items.length) : 0];
+  const doctor = pick(booking.doctors.filter(item => item.schedule.includes('available')));
+  const day = pick(doctor.schedule.flatMap((status, index) => status === 'available' ? [index] : []));
+  sample.campus = pick(campusData)[0];
   sample.dept = departments[doctor.department];
   sample.doctor = doctor.id;
   sample.date = sample.dateAnchor = day;
-  sample.slot = {day, index:0};
+  sample.slot = {day, index:pick(booking.dates[day].slots.map((_, index) => index))};
 
   if (['method','archive','expired','confirm','success','records'].includes(page)) {
     sample.verified = true;
@@ -77,7 +78,7 @@ async function startFromAddress() {
     const page = debugPages.has(requested) ? requested : 'home';
     clearTest();
     await study.begin('', true);
-    if (page !== 'home' && page !== 'campus') state = debugState(page);
+    if (page !== 'home' && page !== 'campus') state = debugState(page, page === 'confirm' && params.get('random') === '1');
     go(page, false);
     return;
   }

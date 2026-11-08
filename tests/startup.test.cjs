@@ -104,3 +104,21 @@ test('matching linked checkpoint reuses the original session and attempt',async(
     assert.ok(app.identity().sequence>identity.sequence);
   } finally {app.stop();}
 });
+
+test('random confirmation preview uses available slots and renders a complete debug form',async()=>{
+  const selections=new Set();
+  for(let index=0;index<12;index++){
+    const app=startup(false,'?mode=debug&page=confirm&random=1');
+    await settle();
+    const state=app.state(), booking=app.env.BOOKING_DATA;
+    assert.equal(state.page,'confirm');
+    assert.ok(state.archived && state.verified);
+    assert.equal(booking.doctors[state.doctor].schedule[state.slot.day],'available');
+    assert.ok(booking.dates[state.slot.day].slots[state.slot.index]);
+    assert.match(app.html(),/确认预约信息/);
+    assert.match(app.html(),/测试用户/);
+    assert.equal(app.calls.length,0);
+    selections.add(JSON.stringify([state.campus,state.doctor,state.slot]));
+  }
+  assert.ok(selections.size>1);
+});
