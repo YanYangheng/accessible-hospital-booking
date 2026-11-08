@@ -44,7 +44,7 @@ let scenario = {expiry:params.has('expiry'), delayed:params.has('delay')};
 let history = [];
 const btn = (label, action, cls='primary') => `<button type="button" class="${cls}" data-action="${action}">${label}</button>`;
 const intro = (title, note, tag='') => `<div class="intro">${tag ? `<div class="eyebrow">${tag}</div>` : ''}<h1>${title}</h1><p class="muted">${note}</p></div>`;
-const choice = (title, note, action, symbol) => `<button type="button" class="choice" data-action="${action}"><span class="choiceIcon">${icon(symbol)}</span><span><strong>${title}</strong><small>${note}</small></span><span class="arrow">${icon('next')}</span></button>`;
+const choice = (title, note, action, symbol, price='') => `<button type="button" class="choice" data-action="${action}"><span class="choiceIcon">${icon(symbol)}</span><span><strong>${title}</strong><small>${note}</small></span><span class="arrow">${price?'<span class="slot-price">'+price+'</span>':''}${icon('next')}</span></button>`;
 const callout = (title, note, tone='') => `<section class="callout ${tone}"><h2>${title}</h2><p class="muted">${note}</p></section>`;
 const pairList = pairs => `<dl class="kv">${pairs.map(([key,value])=>`<div><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
 
@@ -138,11 +138,11 @@ function render(preserveScroll=false) {
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
-        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · 普通门诊</p>${btn('更换医生或日期','change-doctor','ghost')}</div></section>
+        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p></div></section>
         <div class="row"><h2>当天可选时段</h2><span class="state">¥15.30</span></div>
         <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
-          : choice(time,`${index<2?'上午':'下午'} · 有号`,'slot:'+index,'calendar')).join('')}</div>
+          : choice(time,`${index<2?'上午':'下午'} · 普通号`,'slot:'+index,'calendar','¥15.30')).join('')}</div>
         <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
       break;
     case 'login':
