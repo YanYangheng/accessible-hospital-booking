@@ -69,6 +69,7 @@ def initialize_database(path, booking):
         for table, additions in {
             'sessions': {'version': 'TEXT', 'conditions': 'TEXT', 'test_id': 'TEXT'},
             'events': {'attempt': 'TEXT', 'details': 'TEXT'},
+            'doctors': {'building': 'INTEGER', 'floor': 'INTEGER', 'room_number': 'INTEGER'},
         }.items():
             columns = {row[1] for row in db.execute(f'PRAGMA table_info({table})')}
             for name, sql_type in additions.items():
@@ -92,8 +93,12 @@ def initialize_database(path, booking):
             db.execute('DROP TABLE submissions_legacy')
         db.execute('CREATE INDEX IF NOT EXISTS submissions_session ON submissions(session)')
         for doctor in booking['doctors']:
-            db.execute('INSERT OR REPLACE INTO doctors VALUES(?,?,?,?,?,?)',
-                       tuple(doctor[k] for k in ('id', 'name', 'department', 'title', 'bio', 'portrait')))
+            room = doctor['room']
+            db.execute('''INSERT OR REPLACE INTO doctors
+                       (id, name, department, title, bio, portrait, building, floor, room_number)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                       (*[doctor[key] for key in ('id', 'name', 'department', 'title', 'bio', 'portrait')],
+                        room['building'], room['floor'], room['number']))
 
 
 def validate_submission(body, booking, regions):

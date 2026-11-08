@@ -224,7 +224,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 201
+      }
     },
     {
       "id": 1,
@@ -241,7 +246,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 202
+      }
     },
     {
       "id": 2,
@@ -258,7 +268,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 203
+      }
     },
     {
       "id": 3,
@@ -275,7 +290,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 211
+      }
     },
     {
       "id": 4,
@@ -292,7 +312,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 212
+      }
     },
     {
       "id": 5,
@@ -309,7 +334,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 213
+      }
     },
     {
       "id": 6,
@@ -326,7 +356,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 221
+      }
     },
     {
       "id": 7,
@@ -343,7 +378,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 222
+      }
     },
     {
       "id": 8,
@@ -360,7 +400,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 2,
+        "number": 223
+      }
     },
     {
       "id": 9,
@@ -377,7 +422,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 301
+      }
     },
     {
       "id": 10,
@@ -394,7 +444,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 302
+      }
     },
     {
       "id": 11,
@@ -411,7 +466,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 303
+      }
     },
     {
       "id": 12,
@@ -428,7 +488,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 311
+      }
     },
     {
       "id": 13,
@@ -445,7 +510,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 312
+      }
     },
     {
       "id": 14,
@@ -462,7 +532,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 313
+      }
     },
     {
       "id": 15,
@@ -479,7 +554,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 321
+      }
     },
     {
       "id": 16,
@@ -496,7 +576,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 322
+      }
     },
     {
       "id": 17,
@@ -513,7 +598,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 3,
+        "number": 323
+      }
     },
     {
       "id": 18,
@@ -530,7 +620,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 401
+      }
     },
     {
       "id": 19,
@@ -547,7 +642,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 402
+      }
     },
     {
       "id": 20,
@@ -564,7 +664,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 403
+      }
     },
     {
       "id": 21,
@@ -581,7 +686,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 411
+      }
     },
     {
       "id": 22,
@@ -598,7 +708,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 412
+      }
     },
     {
       "id": 23,
@@ -615,7 +730,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 413
+      }
     },
     {
       "id": 24,
@@ -632,7 +752,12 @@ window.BOOKING_DATA = {
         "off",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 421
+      }
     },
     {
       "id": 25,
@@ -649,7 +774,12 @@ window.BOOKING_DATA = {
         "available",
         "available",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 422
+      }
     },
     {
       "id": 26,
@@ -666,7 +796,12 @@ window.BOOKING_DATA = {
         "available",
         "off",
         "available"
-      ]
+      ],
+      "room": {
+        "building": 1,
+        "floor": 4,
+        "number": 423
+      }
     }
   ],
   "defaultRegion": [

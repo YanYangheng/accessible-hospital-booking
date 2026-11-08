@@ -116,6 +116,10 @@ test('random confirmation preview uses available slots and renders a complete de
     assert.equal(booking.doctors[state.doctor].schedule[state.slot.day],'available');
     assert.ok(booking.dates[state.slot.day].slots[state.slot.index]);
     assert.match(app.html(),/确认预约信息/);
+    assert.match(app.html(),/card summary doctor-summary/);
+    assert.match(app.html(),/<dt>科室<\/dt>.*<dt>门诊类型<\/dt>.*<dt>科室位置<\/dt>/s);
+    const {building, floor, number}=booking.doctors[state.doctor].room;
+    assert.ok(app.html().includes(`${state.campus} · ${building}号楼 ${floor}层 ${number}室`));
     assert.match(app.html(),/测试用户/);
     assert.equal(app.calls.length,0);
     selections.add(JSON.stringify([state.campus,state.doctor,state.slot]));
