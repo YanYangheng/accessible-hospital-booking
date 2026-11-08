@@ -187,16 +187,6 @@ function field(label, key, options={}) {
   return `<label class="field" for="${id}"><span>${label}</span>${withIcon(input, {name:"person",id:"id",gender:"person",birthday:"calendar",region:"pin",address:"pin"}[key] || "file")}<span class="err" aria-live="polite"></span>${options.note ? `<small>${options.note}</small>` : ''}</label>`;
 }
 
-const artwork = `<svg class="hero-art" viewBox="0 0 180 170" aria-hidden="true">
-<circle cx="105" cy="83" r="70" fill="#8dc0ff" opacity=".19"/><circle cx="105" cy="83" r="54" fill="none" stroke="#c9e5ff" opacity=".35"/>
-<g transform="rotate(10 103 82)"><rect x="55" y="43" width="99" height="92" rx="17" fill="#103a99" opacity=".43"/>
-<rect x="49" y="36" width="99" height="92" rx="17" fill="#e5f2ff"/><path d="M49 63h99v-9a18 18 0 0 0-18-18H67a18 18 0 0 0-18 18Z" fill="#a9d4ff"/>
-<path d="M75 30v17m48-17v17" stroke="white" stroke-width="7" stroke-linecap="round"/>
-<g fill="#b1d4ff"><rect x="64" y="77" width="15" height="12" rx="3"/><rect x="89" y="77" width="15" height="12" rx="3"/><rect x="64" y="98" width="15" height="12" rx="3"/><rect x="89" y="98" width="15" height="12" rx="3"/></g>
-<circle cx="131" cy="108" r="23" fill="#104cc3"/><path d="m121 108 7 7 13-14" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
-<path d="M35 91v19m-9-9h18m109-74v13m-6-6h12" stroke="#d9edff" stroke-width="2.5" stroke-linecap="round"/>
-</svg>`;
-
 const portraitObserver = new ResizeObserver(entries => {
   for (const {target} of entries) {
     const row=target.closest('.doctor-row');

@@ -13,7 +13,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
 STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/booking-data.js',
-          '/regions.js', '/entry-pages.js', '/booking-pages.js', '/patient-pages.js', '/startup.js', '/assets/doctors-grid.webp', '/assets/hospital-logo.webp'}
+          '/regions.js', '/entry-pages.js', '/booking-pages.js', '/patient-pages.js', '/startup.js', '/assets/doctors-grid.webp', '/assets/hospital-logo.webp',
+          '/assets/home-boao-entrance.jpg'}
 PAGES = set('cover home campus department doctors slots login method archive expired confirm success records guide settings'.split())
 CONTROL = re.compile(r'[A-Za-z0-9:_-]{1,80}')
 TEST_ID = re.compile(r'[A-Za-z0-9_-]{1,40}')
