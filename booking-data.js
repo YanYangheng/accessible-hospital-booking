@@ -819,11 +819,11 @@ window.BOOKING_DATA = {
   "guideImages": {
     "home": "assets/guide-home.webp",
     "campuses": [
-      "assets/guide-binjiang.webp",
-      "assets/guide-jiefang.webp",
-      "assets/guide-chengdong.webp",
-      "assets/guide-boao.webp",
-      "assets/guide-eye.webp"
+      "assets/guide-binjiang-offline.jpg",
+      "assets/guide-jiefang-offline.jpg",
+      "assets/guide-chengdong-offline.jpg",
+      "assets/guide-boao-offline.jpg",
+      "assets/guide-eye-offline.jpg"
     ]
   }
 };

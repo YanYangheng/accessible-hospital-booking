@@ -113,7 +113,7 @@ test('each campus opens its own illustrated guide and home preparation stays ind
   const app=environment();
   const images=new Set();
   for(let index=0;index<5;index++){
-    app.run(`state.campus=campusData[${index}][0];state.page='method';`);
+    app.run(`state.campus=campusData[${index}][0];state.page='method';state.verified=true;state.doctor=0;state.slot={day:1,index:0};`);
     await action(app,'guide');
     const image=app.run(`booking.guideImages.campuses[${index}]`);
     images.add(image);
@@ -121,6 +121,13 @@ test('each campus opens its own illustrated guide and home preparation stays ind
     assert.ok(app.nodes['#view'].innerHTML.includes('guide-card'));
   }
   assert.equal(images.size,5);
+  assert.match(app.nodes['#view'].innerHTML,/callout warn[\s\S]*可先预约，到院后建档[\s\S]*guide-card/);
+  assert.match(app.nodes['#bottom'].innerHTML,/下一步/);
+  await action(app,'offline-archive');
+  assert.match(app.nodes['#view'].innerHTML,/需要线下建档[\s\S]*请核对信息后提交。[\s\S]*请提前一小时前往医院进行建档。/);
+  await action(app,'submit');
+  assert.match(app.nodes['#view'].innerHTML,/预约成功[\s\S]*请提前一小时前往医院进行建档。/);
+  assert.doesNotMatch(app.nodes['#view'].innerHTML,/请核对信息后提交/);
   await action(app,'home');await action(app,'guide:home');
   assert.ok(app.nodes['#view'].innerHTML.includes('src="assets/guide-home.webp"'));
   assert.ok(!app.nodes['#view'].innerHTML.includes('当前尚未预约'));

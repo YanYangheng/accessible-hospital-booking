@@ -82,7 +82,7 @@ class ServerTests(unittest.TestCase):
         for path in paths:
             with urlopen('http://127.0.0.1:%d/%s' % (self.server.server_port, path)) as response:
                 self.assertEqual(response.status, 200)
-                self.assertIn('image/webp', response.headers['Content-Type'])
+                self.assertIn('image/webp' if path == images['home'] else 'image/jpeg', response.headers['Content-Type'])
                 self.assertGreater(len(response.read()), 10000)
 
     def test_session_metadata(self):
@@ -151,6 +151,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.post('/api/cancellations', cancellation)[0], 204)
         self.assertEqual(self.post('/api/submissions', submission())[0], 409)
         self.assertEqual(self.rows('SELECT attempt,cancelled_at FROM submissions'), stored)
+
+    def test_offline_archive_submission_uses_verified_phone_only(self):
+        body = submission()
+        body['archive_method'] = 'offline'
+        self.assertEqual(self.post('/api/submissions', body)[0], 400)
+        body['form'][-1] = 0
+        body['details'] = ['', '', '13800000000', '012345', '']
+        body['profile'] = {}
+        self.assertEqual(self.post('/api/submissions', body)[0], 204)
+        self.assertEqual(self.post('/api/submissions', body)[0], 204)
+        self.assertEqual(self.post('/api/submissions', submission())[0], 409)
+        self.assertEqual(self.rows('SELECT archive_method,fields,name,id_number,phone,address FROM submissions'),
+                         [('offline', 0, '', '', '13800000000', '')])
 
     def test_invalid_forms_and_unknown_sessions(self):
         cases = []

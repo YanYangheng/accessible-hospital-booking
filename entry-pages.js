@@ -35,16 +35,16 @@ pageViews.guide = () => {
   const campusIndex=campusData.findIndex(([name])=>name===state.campus);
   const general=state.guideContext==='home'||campusIndex<0;
   const image=general?booking.guideImages.home:booking.guideImages.campuses[campusIndex];
-  // Hero edges measured in the 1024 px wide source illustrations.
-  const heroEnd = general ? 398 : [400, 425, 445, 455, 386][campusIndex];
-  const crop = heroEnd / 1024 * 100;
+  const crop = general ? 398 / 1024 * 100 : 0;
   const description=general
     ? '首次就诊准备。准备身份证件和手机，在线核对身份并填写建档资料，确认医生、日期和时段，携带证件按预约安排到院。如需人工协助，可到所选院区门诊服务台咨询。具体安排以院区公告为准。'
-    : state.campus+'人工建档办理指引。携带本人有效身份证件，到门诊服务台说明需求，在工作人员协助下核对资料，完成建档后返回线上预约。具体办理地点和时间以院区公告为准。';
+    : state.campus+'人工建档办理指引。先在线完成预约，携带身份证提前一小时到院，到门诊服务台办理建档，完成后到诊区报到候诊。具体办理地点以院区指引为准。';
   content=intro(general?'首次就诊准备':'到院人工协助',general?'了解建档、预约与到院就诊的基本步骤。':'适合希望在工作人员协助下建档的就诊人。')+
-    (general?'':callout('当前尚未预约','此处提供建档办理指引。完成办理后，可再次进入线上预约。','warn'))+
-    `<section class="card below guide-card"><img class="guide-image" style="--guide-crop:${crop}%" src="${image}" width="1024" height="1536" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
-  footer=btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
+    (general?'':callout('可先预约，到院后建档','点击「下一步」继续预约。请携带本人有效身份证件，提前一小时前往所选院区办理建档。','warn'))+
+    `<section class="card below guide-card"><img class="guide-image" style="--guide-crop:${crop}%" src="${image}" width="${general?1024:1190}" height="${general?1536:1322}" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
+  footer=!general&&state.verified&&state.slot
+    ? btn('下一步','offline-archive')
+    : btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
   return {content, footer};
 };
 
