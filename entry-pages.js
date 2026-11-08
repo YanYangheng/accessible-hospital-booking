@@ -21,7 +21,7 @@ pageViews.cover = () => {
 pageViews.home = () => {
   let content;
   let footer = '';
-  content = `<section class="hero"><span class="eyebrow">门诊服务</span>${artwork}<h1>预约挂号</h1><p>选择就诊时间，按提示完成首次就诊准备。</p>${btn('开始预约 '+icon('next'),'start')}</section>
+  content = `<section class="hero"><span class="eyebrow">门诊服务</span>${artwork}<h1>预约挂号</h1><p>选择医生和就诊时间<br>在线预约挂号</p>${btn('开始预约 '+icon('next'),'start')}</section>
   <section class="section"><div class="row"><h2>就医服务</h2></div><div class="stack below">
   ${choice('我的预约',state.receipt?'查看本次预约记录':'查看的预约状态','records','calendar')}
   ${choice('首次就诊准备','了解线上建档和到院人工协助','guide:home','person')}</div></section>
