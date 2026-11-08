@@ -89,8 +89,8 @@ pageViews.success = () => {
     footer:btn('返回首页','home')
   };
   return {
-    content:progress(4)+`<div class="intro"><h1 class="success-heading">${icon('success')}预约成功</h1>
-      <p class="muted">请按预约时段到院。</p></div>`+doctorSummary(state.slot)+visitCard(),
+    content:progress(4)+`<div class="intro success-heading">${icon('success')}
+      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+doctorSummary(state.slot)+visitCard(),
     footer:btn('取消预约','cancel-booking','cancel-booking')
   };
 };
