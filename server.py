@@ -52,7 +52,7 @@ class Handler(SimpleHTTPRequestHandler):
                     campus, department, day, slot, fields = body['form']
                     values = (campus, department, day, slot, fields)
                     if any(type(v) is not int or not 0 <= v <= limit
-                           for v, limit in zip(values, (4, 8, 6, 2, 511))):
+                           for v, limit in zip(values, (4, 8, 3, 2, 511))):
                         raise ValueError()
                     doctor = body.get('doctor')
                     if doctor is not None and (type(doctor) is not int or not 0 <= doctor < 27 or doctor // 3 != department):
