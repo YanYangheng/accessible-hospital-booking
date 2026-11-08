@@ -156,13 +156,22 @@ function progress(step) {
   return `<ol class="progress" aria-label="预约进度">${['选择号源','登录核验','患者信息','确认预约'].map((label,index)=>`<li class="${index === step ? 'active' : index < step ? 'done' : ''}" ${index === step ? 'aria-current="step"' : ''}>${index+1} ${label}</li>`).join('')}</ol>`;
 }
 
+function appointmentLines(selected) {
+  const day = dates[selected.day].join(' ');
+  const time = times[selected.day][selected.index];
+  return `<p>${day} · ${time}<br>${esc(state.dept)} · ${slotType(selected.index, selected.day)}</p>`;
+}
+
 function summary(label, selected=state.slot) {
   if (!selected) return '';
-  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · ${esc(booking.doctors[state.doctor]?.name || '普通号')}</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]} · ${slotType(selected.index,selected.day)}</p></section>`;
+  const doctor = booking.doctors[selected.doctor ?? state.doctor];
+  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(doctor?.name || '预约信息')} · ${esc(state.campus)}</h2>${appointmentLines(selected)}</section>`;
 }
 
 function doctorSummary(selected=null) {
-  return `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(booking.doctors[state.doctor].name)}医生头像" style="background-position:${(booking.doctors[state.doctor].portrait%5)*25}% ${Math.floor(booking.doctors[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><div class="doctor-heading"><h2>${esc(booking.doctors[state.doctor].name)}</h2><span class="doctor-title">${esc(booking.doctors[state.doctor].title)}</span></div><p>${dates[selected?selected.day:state.date].join(' ')}${selected?' · '+times[selected.day][selected.index]:''} · ${esc(state.dept)}${selected?' · '+slotType(selected.index,selected.day):''}</p></div></section>`;
+  const doctor = booking.doctors[state.doctor];
+  const details = selected ? appointmentLines(selected) : `<p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p>`;
+  return `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(doctor.name)}医生头像" style="background-position:${(doctor.portrait%5)*25}% ${Math.floor(doctor.portrait/5)*25}%"></span><div class="doctor-summary-copy"><div class="doctor-heading"><h2>${esc(doctor.name)}</h2><span class="doctor-title">${esc(doctor.title)}</span></div>${details}</div></section>`;
 }
 
 const withIcon = (input, symbol) => `<span class="input-icon">${icon(symbol)}${input}</span>`;
