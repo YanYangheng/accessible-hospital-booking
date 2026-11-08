@@ -56,6 +56,10 @@ def initialize_database(path, booking):
               attempt TEXT PRIMARY KEY, session TEXT NOT NULL, started_ms INTEGER NOT NULL,
               conditions TEXT NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS session_returns (
+              return_id TEXT PRIMARY KEY, session TEXT NOT NULL, attempt TEXT, page TEXT NOT NULL,
+              client_ms INTEGER NOT NULL, ip TEXT NOT NULL, returned_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
             CREATE TABLE IF NOT EXISTS doctors (
               id INTEGER PRIMARY KEY, name TEXT, department INTEGER, title TEXT, bio TEXT, portrait INTEGER
             );
@@ -168,7 +172,22 @@ class Handler(SimpleHTTPRequestHandler):
                                (session, name.strip(), self.client_address[0], timestamp, body['version'], flags))
                 else:
                     require(db.execute('SELECT 1 FROM sessions WHERE session=?', (session,)).fetchone())
-                    if path == '/api/attempts':
+                    if path == '/api/resume':
+                        require(body['version'] == self.server.booking['version'])
+                        saved_version = db.execute('SELECT version FROM sessions WHERE session=?', (session,)).fetchone()[0]
+                        require(saved_version == body['version'])
+                        attempt = body['attempt']
+                        if attempt is not None:
+                            identifier(attempt)
+                            require(db.execute('SELECT 1 FROM attempts WHERE attempt=? AND session=?', (attempt, session)).fetchone())
+                        return_id = identifier(body['return_id'])
+                        require(body['page'] in PAGES and body['page'] != 'cover')
+                        require(type(body['client_ms']) is int and body['client_ms'] > 0)
+                        db.execute('INSERT OR IGNORE INTO session_returns(return_id,session,attempt,page,client_ms,ip) VALUES(?,?,?,?,?,?)',
+                                   (return_id, session, attempt, body['page'], body['client_ms'], self.client_address[0]))
+                        require(db.execute('SELECT session FROM session_returns WHERE return_id=?', (return_id,)).fetchone()[0] == session)
+                        result = {'last_seq': db.execute('SELECT COALESCE(MAX(seq),0) FROM events WHERE session=?', (session,)).fetchone()[0]}
+                    elif path == '/api/attempts':
                         attempt = identifier(body['attempt'])
                         require(type(body['started_ms']) is int and body['started_ms'] > 0)
                         db.execute('INSERT OR IGNORE INTO attempts(attempt,session,started_ms,conditions) VALUES(?,?,?,?)',

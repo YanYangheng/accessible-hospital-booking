@@ -1,5 +1,5 @@
 window.BOOKING_DATA = {
-  "version": "v2-20261109-maintenance-1",
+  "version": "v2-20261109-progress-1",
   "campuses": [
     [
       "滨江院区",

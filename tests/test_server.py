@@ -109,6 +109,20 @@ class ServerTests(unittest.TestCase):
         self.post('/api/events', dict(session=SESSION, events=[good]))
         self.assertEqual(self.rows('SELECT count(*) FROM events'), [(1,)])
 
+    def test_resume_keeps_session_and_attempt_and_records_reentry_once(self):
+        event = dict(seq=7, client_ms=3000, kind='view', page='archive', control='background', attempt=ATTEMPT)
+        self.post('/api/events', dict(session=SESSION, events=[event]))
+        body = dict(session=SESSION, attempt=ATTEMPT, version=BOOKING['version'],
+                    return_id='e'*36, client_ms=4000, page='archive')
+        for _ in range(2):
+            status, result = self.post('/api/resume', body)
+            self.assertEqual(status, 200)
+            self.assertEqual(result['last_seq'], 7)
+        self.assertEqual(self.rows('SELECT session,attempt,ip FROM session_returns'), [(SESSION, ATTEMPT, '127.0.0.1')])
+        self.assertEqual(self.rows('SELECT count(*) FROM sessions'), [(1,)])
+        self.assertEqual(self.rows('SELECT count(*) FROM attempts'), [(1,)])
+        self.assertEqual(self.post('/api/resume', dict(body, attempt='f'*36))[0], 400)
+
     def test_legacy_migration_preserves_data(self):
         path = Path(self.tmp.name) / 'legacy.sqlite3'
         with sqlite3.connect(path) as db:

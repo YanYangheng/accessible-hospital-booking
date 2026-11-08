@@ -40,6 +40,96 @@ let state = fresh();
 const params = new URLSearchParams(location.search);
 let scenario = {expiry:params.has('expiry'), delayed:params.has('delay')};
 let history = [];
+let navigationRun = Date.now().toString(36)+Math.random().toString(36).slice(2);
+let navigationStep = 0;
+let backSource = null;
+let recoveryRecord = study.getProgress();
+const initialNavigation = window.history?.state?.booking;
+
+function captureProgress() {
+  if(state.page==='cover') return null;
+  return {state:JSON.parse(JSON.stringify(state)),scenario:{...scenario},history:[...history],
+    scrollTop:view.scrollTop,navigation:{run:navigationRun,step:navigationStep}};
+}
+function browserEntry() {
+  return {booking:{run:navigationRun,step:navigationStep,attempt:study.identity()?.attempt??null,
+    snapshot:captureProgress()}};
+}
+function syncBrowserEntry() {
+  try { window.history?.replaceState(browserEntry(),''); } catch { /* Some embedded browsers restrict history. */ }
+}
+function pushBrowserEntry() {
+  navigationStep++;
+  try { window.history?.pushState(browserEntry(),''); } catch { /* Internal navigation still works. */ }
+}
+function clearTest() {
+  study.clear();
+  recoveryRecord=null;
+  navigationRun=Date.now().toString(36)+Math.random().toString(36).slice(2);
+  navigationStep=0;
+  state=fresh();
+  history=[];
+}
+function validProgress(snapshot) {
+  const saved=snapshot?.state;
+  const pages=['home','campus','department','doctors','slots','login','method','archive','expired','confirm','success','records','guide','settings'];
+  if(!saved||!pages.includes(saved.page)||!snapshot.scenario||!Array.isArray(snapshot.history)) return false;
+  if(typeof snapshot.scenario.expiry!=='boolean'||typeof snapshot.scenario.delayed!=='boolean') return false;
+  if(!snapshot.history.every(page=>pages.includes(page)||page==='cover')) return false;
+  if(!saved.profile||Object.keys(fresh().profile).some(key=>typeof saved.profile[key]!=='string')) return false;
+  if(!Number.isInteger(saved.date)||!booking.dates[saved.date] ||
+    !Number.isInteger(saved.dateAnchor)||!booking.dates[saved.dateAnchor]) return false;
+  if(saved.doctor!==null && (!Number.isInteger(saved.doctor)||!booking.doctors[saved.doctor])) return false;
+  if(saved.slot && (!Number.isInteger(saved.slot.day)||!Number.isInteger(saved.slot.index)||!booking.dates[saved.slot.day]?.slots[saved.slot.index])) return false;
+  if(['slots','login','method','archive','expired','confirm','success'].includes(saved.page)&&!booking.doctors[saved.doctor]) return false;
+  if(['login','method','archive','expired','confirm','success'].includes(saved.page)&&
+    (!saved.slot||!booking.dates[saved.slot.day]?.slots[saved.slot.index])) return false;
+  return true;
+}
+function internalBack() {
+  if(backSource) return;
+  study.log('result',state.page,'back',{result:'back_requested',source:'page'});
+  if(window.history?.back && window.history.state?.booking?.run===navigationRun && navigationStep>0) {
+    syncBrowserEntry();backSource='page';window.history.back();return;
+  }
+  if(state.page==='confirm') {go('slots',false);return;}
+  if(state.page==='expired') {state.recovery=false;go('slots',false);return;}
+  if(state.page==='success') {history=[];go('home',false);return;}
+  if(state.page==='slots') {go('doctors',false);return;}
+  go(history.pop()||'home',false);
+}
+window.addEventListener('popstate',event=>{
+  const entry=event.state?.booking;
+  const from=state.page;
+  const source=backSource||'browser';backSource=null;
+  document.querySelector('.region-dialog')?.close();
+  if(!entry||entry.run!==navigationRun) {
+    study.log('result',from,'browser-back',{result:'history_boundary',source});
+    syncBrowserEntry();return;
+  }
+  const direction=entry.step<navigationStep?'back':'forward';
+  const latest=state;
+  const sameAttempt=entry.attempt===(study.identity()?.attempt??null);
+  if(entry.snapshot && validProgress(entry.snapshot)) {
+    state={...fresh(),...entry.snapshot.state};
+    if(sameAttempt) {
+      state.profile={...state.profile,...latest.profile};
+      for(const key of ['phone','code','verified','archived','receipt']) state[key]=latest[key];
+    }
+    scenario={...entry.snapshot.scenario};history=[...entry.snapshot.history];
+  } else { state=fresh();history=[]; }
+  navigationStep=entry.step;
+  study.selectAttempt(entry.attempt);
+  study.log('result',state.page,'browser-back',{result:'history_navigation',source,direction,from,to:state.page});
+  study.log('view',state.page,'background');
+  render();
+  view.scrollTop=entry.snapshot?.scrollTop||0;
+});
+window.addEventListener('pageshow',event=>{
+  if(!event.persisted) return;
+  study.pause();state=fresh();history=[];recoveryRecord=study.getProgress();render();
+});
+
 const btn = (label, action, cls='primary') => `<button type="button" class="${cls}" data-action="${action}">${label}</button>`;
 const intro = (title, note, tag='') => `<div class="intro">${tag ? `<div class="eyebrow">${tag}</div>` : ''}<h1>${title}</h1><p class="muted">${note}</p></div>`;
 const choice = (title, note, action, symbol, price='') => `<button type="button" class="choice" data-action="${action}"><span class="choiceIcon">${icon(symbol)}</span><span><strong>${title}</strong><small>${note}</small></span><span class="arrow">${price?'<span class="slot-price">'+price+'</span>':''}${icon('next')}</span></button>`;
@@ -99,14 +189,17 @@ function render(preserveScroll=false) {
   let footer = '';
   switch (state.page) {
     case 'cover':
+      recoveryRecord=study.getProgress();
       content=`<section class="cover-content"><div class="cover-symbol">${icon('calendar')}</div>
       <h1>预约挂号系统v2原型测试</h1>
       <p class="muted">本项目关注首次就诊时的线上建档与预约挂号体验。我们根据前期用户测试发现的问题制作了改进原型，希望通过本次体验了解改进后的流程是否清晰、操作是否顺畅。请按照任务要求操作，本次操作会被记录。</p>
-      <form id="test-entry" autocomplete="off">
+      ${recoveryRecord?`<div class="cover-actions"><p class="muted">检测到上次的测试记录，是否继续？</p>
+      ${btn('从离开位置继续','resume')}${btn('重新开始','restart','secondary')}
+      <p class="err" id="resume-error" role="alert"></p></div>`:`      <form id="test-entry" autocomplete="off">
       <label class="field" for="participant-name">
       ${withIcon('<input id="participant-name" aria-label="测试者姓名" name="participant" maxlength="40" required placeholder="请输入您的姓名">','person')}</label>
       <p class="err" id="entry-error" role="alert"></p>
-      <button class="primary below" type="submit">进入测试</button></form></section>`;
+      <button class="primary below" type="submit">进入测试</button></form>`}</section>`;
       footer=btn('进入调试模式','debug','ghost');
       break;
     case 'home':
@@ -219,6 +312,7 @@ function render(preserveScroll=false) {
   view.scrollTop = preserveScroll ? previousScroll : 0;
   view.focus({preventScroll:true});
   refreshSms();
+  syncBrowserEntry();
 }
 
 function visibleDateIndices(selected) {
@@ -266,9 +360,11 @@ function refreshSms() {
   send.textContent = seconds ? `${seconds} 秒后可重发` : state.sends ? '重新发送' : '发送验证码';
 }
 function go(page, remember=true) {
+  const previousPage=state.page;
   if(page==='doctors' && state.page!=='doctors') state.mode='date';
   if (remember && page!==state.page) history.push(state.page);
   state.page=page;
+  if(page!==previousPage) pushBrowserEntry();
   study.log("view",page);
   render();
 }
@@ -405,7 +501,8 @@ document.addEventListener('submit',async event=>{
       go('home',false);
     } else {
       button.disabled=false;
-      document.querySelector('#entry-error').textContent='暂时无法开始测试，请检查网络后重试。';
+      const notice=document.querySelector('#entry-error');
+      if(notice) notice.textContent='暂时无法开始测试，请检查网络后重试。';
     }
     return;
   }
@@ -442,7 +539,28 @@ document.addEventListener('click',async event=>{
   if (!target) return;
   const [action,index]=target.dataset.action.split(':');
   switch(action) {
+    case 'restart':
+      clearTest();render();
+      break;
+    case 'resume': {
+      const record=recoveryRecord;
+      target.disabled=true;
+      if(!record || !validProgress(record.snapshot) || !await study.resume(record)) {
+        target.disabled=false;
+        const notice=document.querySelector('#resume-error');
+        if(notice) notice.textContent='暂时无法恢复，请检查网络后重试或重新开始。';
+        break;
+      }
+      state={...fresh(),...record.snapshot.state};
+      scenario={...record.snapshot.scenario};history=[...record.snapshot.history];
+      navigationRun=record.snapshot.navigation?.run||navigationRun;
+      navigationStep=initialNavigation?.run===navigationRun ? initialNavigation.step : 0;
+      study.log('view',state.page,'background',{result:'resumed_page'});
+      render();view.scrollTop=record.snapshot.scrollTop||0;
+      break;
+    }
     case 'debug':
+      clearTest();
       await study.begin('',true);
       history=[];
       go('home',false);
@@ -451,7 +569,8 @@ document.addEventListener('click',async event=>{
     case 'start':
       target.disabled=true;
       if(await study.beginAttempt(scenario)) {
-        reset();
+        syncBrowserEntry();
+        state=fresh();history=[];
         go('campus',false);
       } else {
         target.disabled=false;
@@ -459,12 +578,7 @@ document.addEventListener('click',async event=>{
         if(!view.querySelector('.attempt-error')) target.insertAdjacentHTML('afterend','<p class="err attempt-error" role="alert">暂时无法开始，请稍后重试。</p>');
       }
       break;
-    case 'back':
-      if (state.page==='confirm' && state.recovery) {go('slots',false);break;}
-      if (state.page==='confirm' || state.page==='expired') {state.recovery=false;go('slots',false);break;}
-      if (state.page==='success') {history=[];go('home',false);break;}
-      if (state.page==='slots') {go('doctors',false);break;}
-      go(history.pop()||'home',false);break;
+    case 'back': internalBack();break;
     case 'campus': state.campus=campusData[index][0];state.expired=null;go('department');break;
     case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;state.dateAnchor=0;state.doctor=null;go('doctors');break;
     case 'mode':
@@ -541,7 +655,10 @@ document.addEventListener('click',async event=>{
       target.disabled=true;
       const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
         state.slot.day,state.slot.index,Object.values(state.profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
-      if (await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address],state.doctor,{...state.profile})) {
+      const activeAttempt=study.identity()?.attempt;
+      const saved=await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address],state.doctor,{...state.profile});
+      if(study.identity()?.attempt!==activeAttempt) break;
+      if (saved) {
         study.log('result',state.page,'submit',{result:'submission_saved'});
         state.receipt=true;
         go('success',false);
@@ -558,6 +675,7 @@ document.addEventListener('click',async event=>{
       break;
   }
 });
+study.setSnapshotReader(captureProgress);
 study.log("view",state.page);
 render();
 
