@@ -16,9 +16,9 @@ pageViews.login = () => {
 pageViews.method = () => {
   let content;
   let footer = '';
-  content = progress(2)+intro('选择建档方式','首次在本院线上预约，需先建立就诊人档案。')+doctorSummary(state.slot)+
+  content = progress(2)+intro('选择建档方式','请选择在线建档，或先预约、到院后由工作人员协助建档。')+doctorSummary(state.slot)+
     `<div class="stack">${choice('在线建档','一次核对并填写资料，完成后继续预约','archive','file')}
-    ${choice('到院人工协助','查看办理材料、地点和后续步骤','guide','person')}</div>`;
+    ${choice('线下人工协助建档','先完成预约，再提前到院建档','guide','person')}</div>`;
   return {content, footer};
 };
 
@@ -55,9 +55,9 @@ function visitDetails() {
     ['就诊科室', esc(state.dept)],
     ['科室位置', esc(location)],
     ['门诊类型', slotType(index, day)],
-    ['就诊人', esc(state.profile.name)],
+    ['就诊人', state.offlineArchive ? '到院核验' : esc(state.profile.name)],
     ['手机号', esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],
-    ['就诊档案', '建档已完成'],
+    ['就诊档案', state.offlineArchive ? '需要线下建档' : '建档已完成'],
     ['挂号费用', slotFee(index, day)]
   ];
 }
@@ -66,16 +66,19 @@ function visitCard() {
   return `<section class="card"><h2>本次就诊</h2>${pairList(visitDetails())}</section>`;
 }
 
+const offlineArchiveReminder = () => state.offlineArchive
+  ? '<p class="footnote">请提前一小时前往医院进行建档。</p>' : '';
+
 pageViews.confirm = () => ({
   content: progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+doctorSummary(state.slot)+
-    visitCard()+'<p class="footnote">请核对信息后提交。</p>',
+    visitCard()+'<p class="footnote">请核对信息后提交。</p>'+offlineArchiveReminder(),
   footer: btn('提交预约','submit')
 });
 
 function bookingReceipt(includeProgress) {
   return {
     content:(includeProgress ? progress(4) : '')+`<div class="intro success-heading">${icon('success')}
-      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+doctorSummary(state.slot)+visitCard(),
+      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+doctorSummary(state.slot)+visitCard()+offlineArchiveReminder(),
     footer:btn('取消预约','cancel-booking','cancel-booking')
   };
 }

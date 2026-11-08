@@ -152,6 +152,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.post('/api/submissions', submission())[0], 409)
         self.assertEqual(self.rows('SELECT attempt,cancelled_at FROM submissions'), stored)
 
+    def test_offline_archive_submission_uses_verified_phone_only(self):
+        body = submission()
+        body['archive_method'] = 'offline'
+        self.assertEqual(self.post('/api/submissions', body)[0], 400)
+        body['form'][-1] = 0
+        body['details'] = ['', '', '13800000000', '012345', '']
+        body['profile'] = {}
+        self.assertEqual(self.post('/api/submissions', body)[0], 204)
+        self.assertEqual(self.post('/api/submissions', body)[0], 204)
+        self.assertEqual(self.post('/api/submissions', submission())[0], 409)
+        self.assertEqual(self.rows('SELECT archive_method,fields,name,id_number,phone,address FROM submissions'),
+                         [('offline', 0, '', '', '13800000000', '')])
+
     def test_invalid_forms_and_unknown_sessions(self):
         cases = []
         bad = submission(); bad['details'][1] = '000000196010130000'; cases.append(bad)

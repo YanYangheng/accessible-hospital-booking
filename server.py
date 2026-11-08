@@ -93,8 +93,11 @@ def initialize_database(path, booking):
             db.execute(f"INSERT INTO submissions(attempt,{','.join(names)}) "
                        f"SELECT 'legacy-'||session,{','.join(names)} FROM submissions_legacy")
             db.execute('DROP TABLE submissions_legacy')
-        if not any(row[1] == 'cancelled_at' for row in db.execute('PRAGMA table_info(submissions)')):
+        columns = {row[1] for row in db.execute('PRAGMA table_info(submissions)')}
+        if 'cancelled_at' not in columns:
             db.execute('ALTER TABLE submissions ADD COLUMN cancelled_at TEXT')
+        if 'archive_method' not in columns:
+            db.execute("ALTER TABLE submissions ADD COLUMN archive_method TEXT NOT NULL DEFAULT 'online'")
         db.execute('CREATE INDEX IF NOT EXISTS submissions_session ON submissions(session)')
         for doctor in booking['doctors']:
             room = doctor['room']
@@ -118,29 +121,34 @@ def validate_submission(body, booking, regions):
     details = body['details']
     require(isinstance(details, list) and len(details) == 5 and all(isinstance(v, str) for v in details))
     name, identity, phone, code, address = details
-    require(1 <= len(name.strip()) <= 20 and 1 <= len(address.strip()) <= 100)
     require(re.fullmatch(r'1[0-9]{10}', phone) and re.fullmatch(r'[0-9]{6}', code))
-    require(re.fullmatch(r'[0-9]{17}[0-9Xx]', identity))
-    weights = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
-    require('10X98765432'[sum(int(v) * w for v, w in zip(identity[:17], weights)) % 11] == identity[-1].upper())
-    birthday = date(int(identity[6:10]), int(identity[10:12]), int(identity[12:14]))
-    require(birthday <= date.today())
     profile = body['profile']
-    require(isinstance(profile, dict) and all(isinstance(profile.get(k), str) for k in PROFILE_KEYS))
-    require(profile['name'] == name and profile['id'] == identity and profile['address'] == address)
-    require(profile['birthday'] == birthday.isoformat() and profile['gender'] == ('男' if int(identity[16]) % 2 else '女'))
-    for field, low, high in (('height', 30, 250), ('weight', 2, 350)):
-        try:
-            number = Decimal(profile[field])
-            require(number.is_finite() and low <= number <= high and number * 10 % 1 == 0)
-        except InvalidOperation:
-            raise ValueError('Invalid measurement')
-    require(profile['job'] in booking['jobs'] and profile['region'] in regions)
-    require(fields == sum(1 << i for i, k in enumerate(PROFILE_KEYS) if profile[k].strip()) == 511)
+    archive_method = body.get('archive_method', 'online')
+    require(archive_method in ('online', 'offline'))
+    if archive_method == 'offline':
+        require(fields == 0 and profile == {} and name == identity == address == '')
+    else:
+        require(1 <= len(name.strip()) <= 20 and 1 <= len(address.strip()) <= 100)
+        require(re.fullmatch(r'[0-9]{17}[0-9Xx]', identity))
+        weights = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+        require('10X98765432'[sum(int(v) * w for v, w in zip(identity[:17], weights)) % 11] == identity[-1].upper())
+        birthday = date(int(identity[6:10]), int(identity[10:12]), int(identity[12:14]))
+        require(birthday <= date.today())
+        require(isinstance(profile, dict) and all(isinstance(profile.get(k), str) for k in PROFILE_KEYS))
+        require(profile['name'] == name and profile['id'] == identity and profile['address'] == address)
+        require(profile['birthday'] == birthday.isoformat() and profile['gender'] == ('男' if int(identity[16]) % 2 else '女'))
+        for field, low, high in (('height', 30, 250), ('weight', 2, 350)):
+            try:
+                number = Decimal(profile[field])
+                require(number.is_finite() and low <= number <= high and number * 10 % 1 == 0)
+            except InvalidOperation:
+                raise ValueError('Invalid measurement')
+        require(profile['job'] in booking['jobs'] and profile['region'] in regions)
+        require(fields == sum(1 << i for i, k in enumerate(PROFILE_KEYS) if profile[k].strip()) == 511)
     clinic_key = booking['dates'][day]['slots'][slot]['clinic']
     fee = booking['clinics'][clinic_key]['fee_fen']
     snapshot = json.dumps([form, details, doctor], ensure_ascii=False, separators=(',', ':'))
-    return form, details, doctor, clinic_key, fee, hashlib.sha256(snapshot.encode()).hexdigest()
+    return form, details, doctor, clinic_key, fee, hashlib.sha256(snapshot.encode()).hexdigest(), archive_method
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -249,15 +257,15 @@ class Handler(SimpleHTTPRequestHandler):
                         db.execute('BEGIN IMMEDIATE')
                         attempt = identifier(body['attempt'])
                         require(db.execute('SELECT 1 FROM attempts WHERE attempt=? AND session=?', (attempt, session)).fetchone())
-                        form, details, doctor, clinic, fee, snapshot = validate_submission(body, self.server.booking, self.server.regions)
+                        form, details, doctor, clinic, fee, snapshot, archive_method = validate_submission(body, self.server.booking, self.server.regions)
                         previous = db.execute('SELECT snapshot,cancelled_at FROM submissions WHERE attempt=?', (attempt,)).fetchone()
                         if previous and (previous[0] != snapshot or previous[1] is not None):
                             self.respond(409, {'error': 'attempt_already_submitted'})
                             return
                         db.execute('''INSERT OR IGNORE INTO submissions
-                            (attempt,session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor,clinic_type,fee_fen,snapshot)
-                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                            (attempt, session, *form, *details, doctor, clinic, fee, snapshot))
+                            (attempt,session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor,clinic_type,fee_fen,snapshot,archive_method)
+                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                            (attempt, session, *form, *details, doctor, clinic, fee, snapshot, archive_method))
                     else:
                         self.respond(404)
                         return

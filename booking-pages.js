@@ -51,7 +51,9 @@ pageViews.expired = () => {
   let content;
   let footer = '';
   content = progress(3)+intro('原号源已不可预约','请重新选择一个就诊时间。')+summary('已失效',state.expired)+
-    callout('建档已完成','您的就诊资料已保存。您可以直接在同一院区和科室换号。','warn');
+    (state.offlineArchive
+      ? callout('需要线下建档','您可以在同一院区和科室换号，预约后再提前到院建档。','warn')
+      : callout('建档已完成','您的就诊资料已保存。您可以直接在同一院区和科室换号。','warn'));
   footer = btn('查看同科室其他号源','recover');
   return {content, footer};
 };

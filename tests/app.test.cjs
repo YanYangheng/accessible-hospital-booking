@@ -109,19 +109,21 @@ test('returning cover offers resume, restores saved fields, and restart restores
   assert.ok(!app.nodes['#view'].innerHTML.includes('从离开位置继续'));
 });
 
-test('each campus opens its own illustrated guide and home preparation stays independent',async()=>{
+test('each campus shows the offline flow and home preparation stays independent',async()=>{
   const app=environment();
-  const images=new Set();
   for(let index=0;index<5;index++){
-    app.run(`state.campus=campusData[${index}][0];state.page='method';`);
+    app.run(`state.campus=campusData[${index}][0];state.page='method';state.verified=true;state.doctor=0;state.slot={day:1,index:0};`);
     await action(app,'guide');
-    const image=app.run(`booking.guideImages.campuses[${index}]`);
-    images.add(image);
-    assert.ok(app.nodes['#view'].innerHTML.includes('src="'+image+'"'));
-    assert.ok(app.nodes['#view'].innerHTML.includes('guide-card'));
+    assert.ok(app.nodes['#view'].innerHTML.includes(app.run('state.campus')+'办理流程'));
+    assert.match(app.nodes['#view'].innerHTML,/线上确认预约[\s\S]*携带证件提前到院[\s\S]*到门诊服务台建档/);
   }
-  assert.equal(images.size,5);
+  assert.match(app.nodes['#bottom'].innerHTML,/下一步/);
+  await action(app,'offline-archive');
+  assert.match(app.nodes['#view'].innerHTML,/需要线下建档[\s\S]*请核对信息后提交。[\s\S]*请提前一小时前往医院进行建档。/);
+  await action(app,'submit');
+  assert.match(app.nodes['#view'].innerHTML,/预约成功[\s\S]*请提前一小时前往医院进行建档。/);
+  assert.doesNotMatch(app.nodes['#view'].innerHTML,/请核对信息后提交/);
   await action(app,'home');await action(app,'guide:home');
   assert.ok(app.nodes['#view'].innerHTML.includes('src="assets/guide-home.webp"'));
-  assert.ok(!app.nodes['#view'].innerHTML.includes('当前尚未预约'));
+  assert.doesNotMatch(app.nodes['#bottom'].innerHTML,/下一步/);
 });
