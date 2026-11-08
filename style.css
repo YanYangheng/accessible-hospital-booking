@@ -37,7 +37,7 @@ h3{font-size:16px}
 .hero p{font-size:14px;color:#edf5ff;max-width:63%}
 .hero .eyebrow{display:inline-block;border-radius:30px;background:#ffffff23;padding:5px 10px;color:white}
 .hero-art{position:absolute;width:46%;right:-5px;top:29px;z-index:-1}
-.hero .primary{margin-top:26px;color:#114cb7;background:white}
+.hero .primary{margin-top:26px;text-align:center;color:#114cb7;background:white}
 .hero .primary:hover{background:#eaf3ff}
 .card,.choice,.callout{background:white;border:1px solid var(--line);border-radius:17px;padding:15px}
 .choice{display:flex;align-items:center;gap:12px;width:100%;min-height:63px;text-align:left}

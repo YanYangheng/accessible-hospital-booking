@@ -211,8 +211,8 @@ function render(preserveScroll=false) {
   const isCover=state.page==='cover';
   document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
-  const isSuccess = state.page === 'success';
-  const headerButton = isSuccess
+  const showHomeButton = state.page === 'success' || (state.page === 'records' && state.receipt);
+  const headerButton = showHomeButton
     ? `<button type="button" class="back" data-action="home" aria-label="返回首页">${icon('home')}</button>`
     : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`;
   topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : headerButton}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
@@ -563,16 +563,17 @@ document.addEventListener('click',async event=>{
       document.querySelector('[form="archive-form"]').focus();
       break;
     case 'cancel-booking': {
-      if(state.page!=='success' || !state.receipt || target.disabled || !window.confirm('确定取消本次预约吗？')) break;
+      const page=state.page;
+      if((page!=='success' && page!=='records') || !state.receipt || target.disabled || !window.confirm('确定取消本次预约吗？')) break;
       target.disabled=true;
       const attempt=study.identity()?.attempt;
       const cancelled=await study.cancelBooking();
       if(study.identity()?.attempt!==attempt) break;
       if(cancelled) state.receipt=false;
-      study.log('result', 'success', 'cancel-booking', {result:cancelled?'booking_cancelled':'cancel_failed'});
-      if(state.page!=='success') break;
-      if(cancelled) render();
-      else {
+      study.log('result', page, 'cancel-booking', {result:cancelled?'booking_cancelled':'cancel_failed'});
+      if(cancelled) {
+        if(state.page==='success' || state.page==='records') render();
+      } else if(target.isConnected) {
         target.disabled=false;
         if(!bottom.querySelector('.err')) bottom.insertAdjacentHTML('beforeend','<p class="err" role="alert">暂时无法取消，请稍后重试。</p>');
       }

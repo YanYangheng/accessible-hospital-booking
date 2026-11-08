@@ -72,25 +72,20 @@ pageViews.confirm = () => ({
   footer: btn('提交预约','submit')
 });
 
-pageViews.records = () => {
-  let content;
-  let footer = '';
-  content = state.receipt
-    ? intro('我的预约','请按预约时段到院。')+summary('预约已确认')+
-      callout('就诊提醒','请提前到达院区，按医院实际安排报到候诊。','success')
-    : intro('我的预约','还没有预约记录。');
-  footer = btn('返回首页','home');
-  return {content, footer};
-};
-
-pageViews.success = () => {
-  if (!state.receipt) return {
-    content:progress(3)+intro('预约已取消','您可以返回首页重新选择号源。'),
-    footer:btn('返回首页','home')
-  };
+function bookingReceipt(includeProgress) {
   return {
-    content:progress(4)+`<div class="intro success-heading">${icon('success')}
+    content:(includeProgress ? progress(4) : '')+`<div class="intro success-heading">${icon('success')}
       <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+doctorSummary(state.slot)+visitCard(),
     footer:btn('取消预约','cancel-booking','cancel-booking')
   };
+}
+
+pageViews.records = () => state.receipt ? bookingReceipt(false) : {
+  content:intro('我的预约','还没有预约记录。'),
+  footer:btn('返回首页','home')
+};
+
+pageViews.success = () => state.receipt ? bookingReceipt(true) : {
+  content:progress(3)+intro('预约已取消','您可以返回首页重新选择号源。'),
+  footer:btn('返回首页','home')
 };
