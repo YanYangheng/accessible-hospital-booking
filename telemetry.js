@@ -34,10 +34,10 @@ const study = (() => {
     queue.push({session, event:[++seq, Date.now(), kind, page, control]});
     void flush();
   }
-  async function save(form, details) {
+  async function save(form, details, doctor) {
     if (!enabled) return true;
     try {
-      const result = await fetch('/api/submissions', {method:'POST',body:JSON.stringify({session, form, details})});
+      const result = await fetch('/api/submissions', {method:'POST',body:JSON.stringify({session, form, details, doctor})});
       return result.ok;
     } catch {
       return false;

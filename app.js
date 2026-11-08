@@ -34,7 +34,7 @@ const paths = {
 const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
-  page:'home', campus:'', dept:'', date:0, slot:null, expired:null, recovery:false,
+  page:'home', doctor:null, mode:'date', campus:'', dept:'', date:0, slot:null, expired:null, recovery:false,
   verified:false, archived:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
@@ -54,7 +54,7 @@ function progress(step) {
 
 function summary(label, selected=state.slot) {
   if (!selected) return '';
-  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · 普通号</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]}</p></section>`;
+  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · ${esc(window.BOOKING_DOCTORS[state.doctor]?.name || '普通号')}</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]}</p></section>`;
 }
 
 const withIcon = (input, symbol) => `<span class="input-icon">${icon(symbol)}${input}</span>`;
@@ -100,15 +100,29 @@ function render() {
         `<label class="field" for="search">搜索科室${withIcon('<input id="search" class="search" placeholder="例如：普内科" type="search">', "search")}</label>`+
         `<div class="stack below" id="dept-list">${departmentList('')}</div>`;
       break;
+    case 'doctors':
+      content=progress(state.recovery?3:0)+intro('选择医生和日期',esc(state.campus)+' · '+esc(state.dept));
+      if(state.recovery) content+=callout('已保留就诊资料','选择新的医生或日期后，可直接继续预约。');
+      content+=`<div class="booking-tabs" role="group" aria-label="预约方式">
+        <button data-action="mode:doctor" aria-pressed="${state.mode==='doctor'}">按医生预约</button>
+        <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button></div>`;
+      if(state.mode==='date') content+=dateChoices();
+      content+=`<div class="doctor-list">${window.BOOKING_DOCTORS.filter(d=>d.department===departments.indexOf(state.dept)).map(d=>`
+        <article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
+        <div class="doctor-copy"><h2>${d.name}</h2><p class="doctor-title">${d.title}</p><p class="doctor-bio">${d.bio}</p></div>
+        <button class="secondary" data-action="doctor:${d.id}" aria-label="预约${d.name}">预约</button></article>`).join('')}</div>`;
+      if(state.mode==='doctor' && state.doctor!==null) {
+        content+=`<section class="card below"><h2>${window.BOOKING_DOCTORS[state.doctor].name} · 选择日期</h2>${dateChoices()}${btn('查看当天就诊时间','doctor-next')}</section>`;
+      }
+      break;
     case 'slots':
-      content = progress(state.recovery?3:0)+intro(state.recovery?'选择替代号源':'选择就诊时间',`${esc(state.campus)} · ${esc(state.dept)}`);
-      if (state.recovery) content += callout('已保留就诊资料','您可以直接换一个时间，无需重新选择院区、科室或填写资料。') ;
-      content += `<section class="section"><h2>预约日期</h2><div class="days">${dates.map(([date,day],index)=>`<button type="button" class="day" aria-pressed="${state.date===index}" data-action="date:${index}">${date}<small>${day}</small></button>`).join('')}</div>
-        <div class="row"><h2>普通号</h2><span class="state">¥15.30</span></div>
-        <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index
+      content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
+        `<section class="card summary"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · 普通门诊</p>${btn('更换医生或日期','change-doctor','ghost')}</section>
+        <div class="row"><h2>当天可选时段</h2><span class="state">¥15.30</span></div>
+        <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
           : choice(time,`${index<2?'上午':'下午'} · 有号`,'slot:'+index,'calendar')).join('')}</div>
-        <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p></section>`;
+        <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
       break;
     case 'login':
       content = progress(1)+intro('验证手机号码','用于确认就诊联系信息。')+summary('已选择')+
@@ -182,6 +196,9 @@ function render() {
   refreshSms();
 }
 
+function dateChoices() {
+  return `<div class="days doctor-days">${dates.map(([date,day],index)=>`<button type="button" class="day" aria-pressed="${state.date===index}" data-action="date:${index}">${day}<small>${date}</small></button>`).join('')}</div>`;
+}
 function departmentList(query) {
   return departments.map((name,index)=>name.includes(query)?choice(name,'查看普通门诊号源','department:'+index,departmentIcons[index]):'').join('') || '<p class="muted">没有匹配科室，请试试其他关键词。</p>';
 }
@@ -206,7 +223,7 @@ function go(page, remember=true) {
 function finishArchive() {
   state.archived=true;
   if (scenario.expiry && !state.expired) {
-    state.expired={...state.slot};
+    state.expired={...state.slot,doctor:state.doctor};
     go('expired',false);
   } else go('confirm',false);
 }
@@ -344,10 +361,21 @@ document.addEventListener('click',async event=>{
       if (state.page==='confirm' && state.recovery) {go('slots',false);break;}
       if (state.page==='confirm' || state.page==='expired') {state.recovery=false;go('slots',false);break;}
       if (state.page==='success') {history=[];go('home',false);break;}
-      if (state.page==='slots' && state.recovery) {go('expired',false);break;}
+      if (state.page==='slots') {go('doctors',false);break;}
       go(history.pop()||'home',false);break;
     case 'campus': state.campus=campusData[index][0];state.expired=null;go('department');break;
-    case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;go('slots');break;
+    case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;state.doctor=null;go('doctors');break;
+    case 'mode':
+      state.mode=index;
+      render();
+      break;
+    case 'doctor':
+      state.doctor=Number(index);
+      if(state.mode==='date') go('slots');
+      else {render();view.scrollTop=view.scrollHeight;}
+      break;
+    case 'doctor-next': go('slots');break;
+    case 'change-doctor': go('doctors');break;
     case 'date':
       state.date=Number(index);
       render();
@@ -377,7 +405,7 @@ document.addEventListener('click',async event=>{
     case 'recover':
       state.recovery=true;
       state.date=state.expired.day;
-      go('slots',false);
+      go('doctors',false);
       break;
     case 'sample':
       Object.assign(state.profile,{name:'测试用户',id:'00000019601013000X',gender:'女',birthday:'1960-10-13',height:'160',weight:'56',job:'退休',region:'浙江省杭州市滨江区',address:'演示路 1 号'});
@@ -393,7 +421,7 @@ document.addEventListener('click',async event=>{
       target.disabled=true;
       const form=[campusData.findIndex(([name])=>name===state.campus),departments.indexOf(state.dept),
         state.slot.day,state.slot.index,Object.values(state.profile).reduce((mask,value,i)=>mask | (value.trim()?1<<i:0),0)];
-      if (await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address])) {
+      if (await study.save(form,[state.profile.name,state.profile.id,state.phone,state.code,state.profile.address],state.doctor)) {
         state.receipt=true;
         go('success',false);
       } else {

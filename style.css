@@ -43,3 +43,17 @@ h1,h2,h3,p{margin:0}h1{font-size:27px;line-height:1.25;letter-spacing:-.035em}h2
 
 html,body{touch-action:pan-x pan-y}
 .choiceIcon .icon{width:25px;height:25px}
+
+.booking-tabs{display:flex;background:white;border-radius:14px;border:1px solid var(--line);overflow:hidden;margin-bottom:14px}
+.booking-tabs button{flex:1;border:0;border-bottom:3px solid transparent;background:white;min-height:54px;color:var(--muted)}
+.booking-tabs button[aria-pressed=true]{color:var(--blue);border-bottom-color:var(--blue);background:#edf5ff;font-weight:700}
+.doctor-days{margin-bottom:18px}
+.doctor-list{background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}
+.doctor-row{display:flex;align-items:center;gap:10px;padding:18px 12px;border-bottom:1px solid var(--line)}
+.doctor-row:last-child{border-bottom:0}
+.doctor-avatar{width:54px;height:54px;flex:none;border-radius:50%;background-image:url('assets/doctors-grid.png');background-size:500% 500%;background-repeat:no-repeat}
+.doctor-copy{flex:1;min-width:0}
+.doctor-copy h2{font-size:18px}
+.doctor-title{font-size:12px;color:var(--muted);margin:2px 0 5px}
+.doctor-bio{font-size:13px;color:var(--muted);line-height:1.5}
+.doctor-row .secondary{flex:none;padding:7px 10px;min-height:42px;font-size:14px}

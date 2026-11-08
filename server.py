@@ -9,9 +9,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
-STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/assets/hospital-logo.webp'}
-PAGES = set('home campus department slots login method archive expired confirm success records guide settings'.split())
-CONTROL = re.compile(r'(?:home|start|back|send|archive|guide|records|recover|submit|apply|settings|method|sample|background|phone|code|search|expiry|delayed|archive-submit|login-submit|field-(?:name|id|gender|birthday|height|weight|job|region|address)|(?:campus|department|date|slot):[0-9]{1,2})')
+STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/doctors.js', '/assets/doctors-grid.png', '/assets/hospital-logo.webp'}
+PAGES = set('home campus department doctors slots login method archive expired confirm success records guide settings'.split())
+CONTROL = re.compile(r'(?:home|start|back|doctor-next|change-doctor|mode:doctor|mode:date|send|archive|guide|records|recover|submit|apply|settings|method|sample|background|phone|code|search|expiry|delayed|archive-submit|login-submit|field-(?:name|id|gender|birthday|height|weight|job|region|address)|(?:campus|department|doctor|date|slot):[0-9]{1,2})')
 UUID = re.compile(r'[a-f0-9-]{36}')
 
 
@@ -54,14 +54,17 @@ class Handler(SimpleHTTPRequestHandler):
                     if any(type(v) is not int or not 0 <= v <= limit
                            for v, limit in zip(values, (4, 8, 2, 2, 511))):
                         raise ValueError()
+                    doctor = body.get('doctor')
+                    if doctor is not None and (type(doctor) is not int or not 0 <= doctor < 27 or doctor // 3 != department):
+                        raise ValueError()
                     details = body['details']
                     if not isinstance(details, list) or len(details) != 5 or any(
                             not isinstance(value, str) or len(value) > limit
                             for value, limit in zip(details, (20, 18, 11, 6, 100))):
                         raise ValueError()
                     db.execute("""INSERT OR IGNORE INTO submissions
-                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address)
-                               VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (session, *values, *details))
+                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor)
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""", (session, *values, *details, doctor))
                 else:
                     self.send_error(404)
                     return
@@ -97,6 +100,13 @@ if __name__ == '__main__':
         for column in ('name', 'id_number', 'phone', 'verification_code', 'address'):
             if column not in columns:
                 db.execute(f'ALTER TABLE submissions ADD COLUMN {column} TEXT')
+        if 'doctor' not in columns:
+            db.execute('ALTER TABLE submissions ADD COLUMN doctor INTEGER')
+        db.execute('CREATE TABLE IF NOT EXISTS doctors (id INTEGER PRIMARY KEY, name TEXT, department INTEGER, title TEXT, bio TEXT, portrait INTEGER)')
+        doctor_data = json.loads((ROOT / 'doctors.js').read_text().split('=', 1)[1].rstrip(';\n'))
+        for doctor in doctor_data:
+            db.execute('INSERT OR REPLACE INTO doctors VALUES(?,?,?,?,?,?)',
+                       tuple(doctor[k] for k in ('id','name','department','title','bio','portrait')))
         db.commit()
     with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
         server.database = args.database
