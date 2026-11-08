@@ -134,7 +134,7 @@ function render(preserveScroll=false) {
         <div class="doctor-entry"><article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
         <div class="doctor-copy"><div class="doctor-heading"><h2>${d.name}</h2><span class="doctor-title">${d.title}</span></div><p class="doctor-bio">${d.bio}</p></div>
         <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" ${state.mode==='doctor' ? `aria-expanded="${state.doctor===d.id}" aria-controls="doctor-dates-${d.id}"` : ''} aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>
-        ${state.mode==='doctor'&&state.doctor===d.id ? `<section class="doctor-date-panel" id="doctor-dates-${d.id}">${dateChoices(true)}${d.schedule[state.date]==='available'?btn('下一步','doctor-next'):'<p class="muted below">该医生当天'+(d.schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>` : ''}</div>`).join('')}</div>`;
+        ${state.mode==='doctor'&&state.doctor===d.id ? `<section class="doctor-date-panel" id="doctor-dates-${d.id}"><h2>${d.name} · 选择日期</h2>${dateChoices(true)}${d.schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(d.schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>` : ''}</div>`).join('')}</div>`;
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
