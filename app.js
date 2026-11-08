@@ -16,7 +16,10 @@ const divisions = {"北京市":{"市辖区":["东城区","西城区","朝阳区"
 const defaultRegion = ['浙江省','杭州市','滨江区'];
 const dates = [['10月13日','周二'],['10月14日','周三'],['10月15日','周四']];
 const times = [['11:00–11:30','11:30–12:00','14:00–14:30'],['08:30–09:00','09:00–09:30','14:00–14:30'],['09:30–10:00','10:00–10:30','14:30–15:00']];
+const departmentIcons = ["internal", "senior", "general", "heart", "lungs", "stomach", "endocrine", "brain", "tooth"];
 const paths = {
+"internal":"<path d=\"M6 3v6a4 4 0 0 0 8 0V3M4 3h4m4 0h4m-6 10v3a4 4 0 0 0 8 0v-2\"/><circle cx=\"18\" cy=\"11\" r=\"3\"/>","senior":"<circle cx=\"10\" cy=\"5\" r=\"2\"/><path d=\"m9 10 3-1 3 4h3m-9-3-3 5m3-5 1 6-3 5m3-5 3 5m5-8v8\"/>","general":"<path d=\"m3 10 9-7 9 7v10H3Z\"/><path d=\"M12 10v7m-3-3.5h6\"/>","heart":"<path d=\"M12 21S2 15 2 8a5 5 0 0 1 10-1 5 5 0 0 1 10 1c0 7-10 13-10 13Z\"/><path d=\"M4 12h4l2-4 3 8 2-4h5\"/>","lungs":"<path d=\"M12 3v7m0 0-4 3m4-3 4 3M9 6C6 6 2 13 3 18c1 4 6 2 7 0V9m5-3c3 0 7 7 6 12-1 4-6 2-7 0V9\"/>","stomach":"<path d=\"M10 3v5c0 3 3 4 5 2 5-4 8 4 4 8-3 4-8 2-10 0-3-3-4-1-4 3M7 3v6c0 4 2 6 5 6\"/>","endocrine":"<path d=\"M10 8C7 3 3 5 3 10s3 9 6 8l3-3 3 3c3 1 6-3 6-8s-4-7-7-2M10 8h4v7h-4Z\"/><path d=\"M12 2v3m0 14v3\"/>","brain":"<path d=\"M12 6c0-4-6-4-6 0-4 0-5 5-2 7-3 4 1 8 4 6 1 3 4 2 4-1V6Zm0 0c0-4 6-4 6 0 4 0 5 5 2 7 3 4-1 8-4 6-1 3-4 2-4-1\"/><path d=\"m6 10 3 2m-2 4 2-1m9-5-3 2m2 4-2-1\"/>","tooth":"<path d=\"M12 5C4 0 1 7 5 13c1 2 1 8 3 8s2-7 4-7 2 7 4 7 2-6 3-8c4-6 1-13-7-8Z\"/><path d=\"m9 5 4 2\"/>",
+
   search:'<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/>',
   phone:'<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/>',
   code:'<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 12 2 2 5-5"/>',
@@ -180,7 +183,7 @@ function render() {
 }
 
 function departmentList(query) {
-  return departments.map((name,index)=>name.includes(query)?choice(name,'查看普通门诊号源','department:'+index,'cross'):'').join('') || '<p class="muted">没有匹配科室，请试试其他关键词。</p>';
+  return departments.map((name,index)=>name.includes(query)?choice(name,'查看普通门诊号源','department:'+index,departmentIcons[index]):'').join('') || '<p class="muted">没有匹配科室，请试试其他关键词。</p>';
 }
 function smsStatus() {
   if (!state.sends) return '验证后可继续首次建档。';
@@ -408,3 +411,11 @@ document.addEventListener('click',async event=>{
 study.log("view",state.page);
 render();
 setInterval(refreshSms,250);
+
+// Restrict touch zoom while preserving normal scrolling.
+document.addEventListener('gesturestart', event => event.preventDefault(), {passive:false});
+document.addEventListener('gesturechange', event => event.preventDefault(), {passive:false});
+document.addEventListener('touchmove', event => {
+  if (event.touches.length > 1) event.preventDefault();
+}, {passive:false});
+document.addEventListener('dblclick', event => event.preventDefault());
