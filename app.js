@@ -34,7 +34,7 @@ const paths = {
 const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
-  page:'home', doctor:null, mode:'date', campus:'', dept:'', date:0, slot:null, expired:null, recovery:false,
+  page:'home', doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
   verified:false, archived:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
@@ -201,7 +201,7 @@ function visibleDateIndices(selected) {
   return [first,first+1,first+2];
 }
 function dateChoices() {
-  return `<div class="days doctor-days">${visibleDateIndices(state.date).map(index=>{
+  return `<div class="days doctor-days">${visibleDateIndices(state.dateAnchor).map(index=>{
     const [date,day]=dates[index];
     const status=state.mode==='doctor'&&state.doctor!==null ? window.BOOKING_DOCTORS[state.doctor].schedule[index] : null;
     return `<button type="button" class="day" ${status&&status!=='available'?'disabled':''} aria-pressed="${state.date===index}" data-action="date:${index}">${day}<small>${date}</small>${status?'<small>'+({available:'有号',full:'约满',off:'停诊'}[status])+'</small>':''}</button>`;
@@ -217,6 +217,7 @@ document.addEventListener('change',event=>{
     return;
   }
   state.date=day;
+  state.dateAnchor=day;
   study.log('click',state.page,'date:'+day);
   render();
   view.querySelector('#booking-date')?.focus({preventScroll:true});
@@ -389,11 +390,12 @@ document.addEventListener('click',async event=>{
       if (state.page==='slots') {go('doctors',false);break;}
       go(history.pop()||'home',false);break;
     case 'campus': state.campus=campusData[index][0];state.expired=null;go('department');break;
-    case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;state.doctor=null;go('doctors');break;
+    case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;state.dateAnchor=0;state.doctor=null;go('doctors');break;
     case 'mode':
       state.mode=index;
       if(index==='doctor'&&state.doctor!==null&&window.BOOKING_DOCTORS[state.doctor].schedule[state.date]!=='available') {
         state.date=window.BOOKING_DOCTORS[state.doctor].schedule.indexOf('available');
+        state.dateAnchor=state.date;
       }
       render();
       break;
@@ -402,6 +404,7 @@ document.addEventListener('click',async event=>{
       state.doctor=Number(index);
       if(state.mode==='doctor'&&window.BOOKING_DOCTORS[state.doctor].schedule[state.date]!=='available') {
         state.date=window.BOOKING_DOCTORS[state.doctor].schedule.indexOf('available');
+        state.dateAnchor=state.date;
       }
       if(state.mode==='date') go('slots');
       else {render();view.scrollTop=view.scrollHeight;}
@@ -439,6 +442,7 @@ document.addEventListener('click',async event=>{
     case 'recover':
       state.recovery=true;
       state.date=state.expired.day;
+      state.dateAnchor=state.date;
       go('doctors',false);
       break;
     case 'sample':
