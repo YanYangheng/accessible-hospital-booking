@@ -48,8 +48,11 @@ pageViews.confirm = () => {
   let footer = '';
   const {building, floor, number} = booking.doctors[state.doctor].room;
   const location = `${state.campus} · ${building}号楼 ${floor}层 ${number}室`;
+  const campusAddress = campusData.find(([name]) => name === state.campus)?.[1] ?? '';
+  const {day, index} = state.slot;
+  const visitTime = `${dates[day].join(' ')} · ${times[day][index]}`;
   content = progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+doctorSummary(state.slot)+
-    `<section class="card"><h2>本次就诊</h2>${pairList([['就诊人',esc(state.profile.name)],['联系手机',esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],['就诊档案','建档已完成'],['科室',esc(state.dept)],['门诊类型',slotType(state.slot.index,state.slot.day)],['科室位置',esc(location)],['挂号费用',slotFee(state.slot.index,state.slot.day)]])}</section>
+    `<section class="card"><h2>本次就诊</h2>${pairList([['就诊人',esc(state.profile.name)],['联系手机',esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],['就诊档案','建档已完成'],['就诊时间',esc(visitTime)],['科室',esc(state.dept)],['科室位置',esc(location)],['院区地址',esc(campusAddress)],['门诊类型',slotType(index,day)],['挂号费用',slotFee(state.slot.index,state.slot.day)]])}</section>
     <p class="footnote">请核对信息后提交。</p>`;
   footer = btn('提交预约','submit');
   return {content, footer};
