@@ -63,3 +63,8 @@ html,body{touch-action:pan-x pan-y}
 .doctor-days .day small{font-size:12px}
 .doctor-days .day:disabled{background:#f3f5f8;color:#7a8797;border-color:#e0e5eb}
 .doctor-row .fully-booked{background:#fff0f1;border-color:#edb7be;color:#ae3745;opacity:1}
+
+.more-date{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;overflow:hidden;cursor:pointer}
+.more-date .icon{width:22px;height:22px;color:var(--blue)}
+.more-date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0}
+.more-date:focus-within{outline:3px solid #659afa;outline-offset:2px}
