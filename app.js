@@ -16,6 +16,12 @@ const divisions = {"北京市":{"市辖区":["东城区","西城区","朝阳区"
 const defaultRegion = ['浙江省','杭州市','滨江区'];
 const dates = [['10月13日','周二'],['10月14日','周三'],['10月15日','周四'],['10月16日','周五'],['10月17日','周六'],['10月18日','周日'],['10月19日','周一']];
 const times = [['11:00–11:30','11:30–12:00','14:00–14:30'],['08:30–09:00','09:00–09:30','14:00–14:30'],['09:30–10:00','10:00–10:30','14:30–15:00'],['08:00–08:30','10:30–11:00','15:00–15:30'],['08:30–09:00','09:30–10:00','14:30–15:00'],['09:00–09:30','11:00–11:30','15:30–16:00'],['08:00–08:30','10:00–10:30','14:00–14:30']];
+times.forEach(day=>day.push(
+  day[2].startsWith('14:00')?'15:00–15:30':
+  day[2].startsWith('14:30')?'15:30–16:00':'16:00–16:30'
+));
+const slotType=index=>index===3?'特需门诊':'普通号';
+const slotFee=index=>index===3?'¥82.50':'¥15.30';
 const departmentIcons = ["internal", "senior", "general", "heart", "lungs", "stomach", "endocrine", "brain", "tooth"];
 const paths = {
 "internal":"<path d=\"M6 3v6a4 4 0 0 0 8 0V3M4 3h4m4 0h4m-6 10v3a4 4 0 0 0 8 0v-2\"/><circle cx=\"18\" cy=\"11\" r=\"3\"/>","senior":"<circle cx=\"10\" cy=\"5\" r=\"2\"/><path d=\"m9 10 3-1 3 4h3m-9-3-3 5m3-5 1 6-3 5m3-5 3 5m5-8v8\"/>","general":"<path d=\"m3 10 9-7 9 7v10H3Z\"/><path d=\"M12 10v7m-3-3.5h6\"/>","heart":"<path d=\"M12 21S2 15 2 8a5 5 0 0 1 10-1 5 5 0 0 1 10 1c0 7-10 13-10 13Z\"/><path d=\"M4 12h4l2-4 3 8 2-4h5\"/>","lungs":"<path d=\"M12 3v7m0 0-4 3m4-3 4 3M9 6C6 6 2 13 3 18c1 4 6 2 7 0V9m5-3c3 0 7 7 6 12-1 4-6 2-7 0V9\"/>","stomach":"<path d=\"M10 3v5c0 3 3 4 5 2 5-4 8 4 4 8-3 4-8 2-10 0-3-3-4-1-4 3M7 3v6c0 4 2 6 5 6\"/>","endocrine":"<path d=\"M10 8C7 3 3 5 3 10s3 9 6 8l3-3 3 3c3 1 6-3 6-8s-4-7-7-2M10 8h4v7h-4Z\"/><path d=\"M12 2v3m0 14v3\"/>","brain":"<path d=\"M12 6c0-4-6-4-6 0-4 0-5 5-2 7-3 4 1 8 4 6 1 3 4 2 4-1V6Zm0 0c0-4 6-4 6 0 4 0 5 5 2 7 3 4-1 8-4 6-1 3-4 2-4-1\"/><path d=\"m6 10 3 2m-2 4 2-1m9-5-3 2m2 4-2-1\"/>","tooth":"<path d=\"M12 5C4 0 1 7 5 13c1 2 1 8 3 8s2-7 4-7 2 7 4 7 2-6 3-8c4-6 1-13-7-8Z\"/><path d=\"m9 5 4 2\"/>",
@@ -25,6 +31,7 @@ const paths = {
   code:'<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 12 2 2 5-5"/>',
   id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="M5.5 15c0-3 5-3 5 0M13 10h5m-5 4h5"/>',
   back:'<path d="m14 6-6 6 6 6"/>', next:'<path d="m9 6 6 6-6 6"/>',
+  special:'<path d="M12 2 4 5v6c0 5 8 11 8 11s8-6 8-11V5Z"/><path d="m12 6 1.5 3 3.5.5-2.5 2.5.6 3.5-3.1-1.6-3.1 1.6.6-3.5L7 9.5l3.5-.5Z"/>',
   calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v5m10-5v5M3 11h18m-13 5h2m4 0h2"/>',
   pin:'<path d="M19 10c0 5-7 10-7 10s-7-5-7-10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',
   person:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
@@ -54,7 +61,7 @@ function progress(step) {
 
 function summary(label, selected=state.slot) {
   if (!selected) return '';
-  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · ${esc(window.BOOKING_DOCTORS[state.doctor]?.name || '普通号')}</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]}</p></section>`;
+  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(state.dept)} · ${esc(window.BOOKING_DOCTORS[state.doctor]?.name || '普通号')}</h2><p>${esc(state.campus)} · ${dates[selected.day].join(' ')} · ${times[selected.day][selected.index]} · ${slotType(selected.index)}</p></section>`;
 }
 
 const withIcon = (input, symbol) => `<span class="input-icon">${icon(symbol)}${input}</span>`;
@@ -139,10 +146,10 @@ function render(preserveScroll=false) {
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
         `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p></div></section>
-        <div class="row"><h2>当天可选时段</h2><span class="state">¥15.30</span></div>
+        <div class="row"><h2>当天可选时段</h2></div>
         <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
-          : choice(time,`${index<2?'上午':'下午'} · 普通号`,'slot:'+index,'calendar','¥15.30')).join('')}</div>
+          : choice(time,`${index<2?'上午':'下午'} · ${slotType(index)}`,'slot:'+index,index===3?'special':'calendar',slotFee(index))).join('')}</div>
         <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
       break;
     case 'login':
@@ -183,7 +190,7 @@ function render(preserveScroll=false) {
       break;
     case 'confirm':
       content = progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+summary('待确认 · 尚未预约')+
-        `<section class="card"><h2>本次就诊</h2>${pairList([['就诊人',esc(state.profile.name)],['联系手机',esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],['就诊档案','建档已完成'],['挂号费用','¥15.30']])}</section>
+        `<section class="card"><h2>本次就诊</h2>${pairList([['就诊人',esc(state.profile.name)],['联系手机',esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],['就诊档案','建档已完成'],['门诊类型',slotType(state.slot.index)],['挂号费用',slotFee(state.slot.index)]])}</section>
         <p class="footnote">请核对信息后提交。</p>`;
       footer = btn('提交预约','submit');
       break;

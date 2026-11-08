@@ -59,7 +59,7 @@ class Handler(SimpleHTTPRequestHandler):
                     campus, department, day, slot, fields = body['form']
                     values = (campus, department, day, slot, fields)
                     if any(type(v) is not int or not 0 <= v <= limit
-                           for v, limit in zip(values, (4, 8, 6, 2, 511))):
+                           for v, limit in zip(values, (4, 8, 6, 3, 511))):
                         raise ValueError()
                     doctor = body.get('doctor')
                     if doctor is not None and (type(doctor) is not int or not 0 <= doctor < 27 or doctor // 3 != department):
@@ -72,8 +72,10 @@ class Handler(SimpleHTTPRequestHandler):
                             for value, limit in zip(details, (20, 18, 11, 6, 100))):
                         raise ValueError()
                     db.execute("""INSERT OR IGNORE INTO submissions
-                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor)
-                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""", (session, *values, *details, doctor))
+                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor,clinic_type,fee_fen)
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                               (session, *values, *details, doctor, 'special' if slot == 3 else 'ordinary',
+                                8250 if slot == 3 else 1530))
                 else:
                     self.send_error(404)
                     return
@@ -115,6 +117,10 @@ if __name__ == '__main__':
                 db.execute(f'ALTER TABLE submissions ADD COLUMN {column} TEXT')
         if 'doctor' not in columns:
             db.execute('ALTER TABLE submissions ADD COLUMN doctor INTEGER')
+        if 'clinic_type' not in columns:
+            db.execute("ALTER TABLE submissions ADD COLUMN clinic_type TEXT DEFAULT 'ordinary'")
+        if 'fee_fen' not in columns:
+            db.execute('ALTER TABLE submissions ADD COLUMN fee_fen INTEGER DEFAULT 1530')
         db.execute('CREATE TABLE IF NOT EXISTS doctors (id INTEGER PRIMARY KEY, name TEXT, department INTEGER, title TEXT, bio TEXT, portrait INTEGER)')
         doctor_data = json.loads((ROOT / 'doctors.js').read_text().split('=', 1)[1].rstrip(';\n'))
         for doctor in doctor_data:
