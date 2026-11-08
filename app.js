@@ -44,7 +44,10 @@ let navigationRun = Date.now().toString(36)+Math.random().toString(36).slice(2);
 let navigationStep = 0;
 let backSource = null;
 let recoveryRecord = study.getProgress();
-const initialNavigation = window.history?.state?.booking;
+function readBrowserNavigation() {
+  try { return window.history?.state?.booking; } catch { return null; }
+}
+const initialNavigation = readBrowserNavigation();
 
 function captureProgress() {
   if(state.page==='cover') return null;
@@ -89,7 +92,7 @@ function validProgress(snapshot) {
 function internalBack() {
   if(backSource) return;
   study.log('result',state.page,'back',{result:'back_requested',source:'page'});
-  if(window.history?.back && window.history.state?.booking?.run===navigationRun && navigationStep>0) {
+  if(window.history?.back && readBrowserNavigation()?.run===navigationRun && navigationStep>0) {
     syncBrowserEntry();backSource='page';window.history.back();return;
   }
   if(state.page==='confirm') {go('slots',false);return;}

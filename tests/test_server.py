@@ -67,6 +67,12 @@ class ServerTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             return db.execute(sql).fetchall()
 
+    def test_versioned_resources_revalidate_instead_of_reusing_stale_scripts(self):
+        for path in ('/', '/telemetry.js?v=20261109-boot-1', '/app.js?v=20261109-boot-1'):
+            with urlopen('http://127.0.0.1:%d%s' % (self.server.server_port, path)) as response:
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.headers['Cache-Control'], 'no-cache')
+
     def test_session_metadata(self):
         row = self.rows('SELECT participant_name,ip,version,conditions FROM sessions')[0]
         self.assertEqual(row[:3], ('参与者', '127.0.0.1', BOOKING['version']))
