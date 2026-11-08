@@ -1,4 +1,5 @@
 import json
+from ipaddress import ip_address
 import sqlite3
 import sys
 import tempfile
@@ -48,9 +49,9 @@ class ServerTests(unittest.TestCase):
         self.thread.join()
         self.tmp.cleanup()
 
-    def post(self, path, data):
+    def post(self, path, data, headers=None):
         request = Request('http://127.0.0.1:%d%s' % (self.server.server_port, path),
-                          data=json.dumps(data).encode(), method='POST')
+                          data=json.dumps(data).encode(), method='POST', headers=headers or {})
         try:
             response = urlopen(request)
         except HTTPError as error:
@@ -88,6 +89,31 @@ class ServerTests(unittest.TestCase):
         row = self.rows('SELECT participant_name,ip,version,conditions FROM sessions')[0]
         self.assertEqual(row[:3], ('参与者', '127.0.0.1', BOOKING['version']))
         self.assertTrue(json.loads(row[3])['expiry'])
+
+    def test_source_ip_requires_trusted_proxy_and_single_valid_address(self):
+        begin = dict(name='IP 测试', started_ms=1000, version=BOOKING['version'],
+                     conditions={'expiry': False, 'delayed': False})
+        forwarded = {'X-Real-IP': '203.0.113.5', 'X-Forwarded-For': '203.0.113.7'}
+        self.assertEqual(self.post('/api/sessions', dict(begin, session='1' * 36), forwarded)[0], 204)
+        self.assertEqual(self.rows("SELECT ip FROM sessions WHERE participant_name='IP 测试'"),
+                         [('127.0.0.1',)])
+        self.server.trusted_proxies = {ip_address('127.0.0.1')}
+        cases = [
+            ('2', forwarded, '203.0.113.5'),
+            ('3', {'X-Real-IP': '2001:0db8::1'}, '2001:db8::1'),
+            ('4', {'X-Real-IP': '203.0.113.5, 203.0.113.7'}, '127.0.0.1'),
+            ('5', {'X-Forwarded-For': '203.0.113.7'}, '127.0.0.1'),
+            ('6', {'X-Real-IP': '203.0.113.5:8767'}, '127.0.0.1'),
+        ]
+        for digit, headers, expected in cases:
+            with self.subTest(headers=headers):
+                session = digit * 36
+                self.assertEqual(self.post('/api/sessions', dict(begin, session=session), headers)[0], 204)
+                self.assertIn((session, expected), self.rows('SELECT session,ip FROM sessions'))
+        resume = dict(session='2' * 36, attempt=None, return_id='7' * 36, client_ms=2000,
+                      page='home', version=BOOKING['version'])
+        self.assertEqual(self.post('/api/resume', resume, {'X-Real-IP': '203.0.113.8'})[0], 200)
+        self.assertEqual(self.rows('SELECT ip FROM session_returns'), [('203.0.113.8',)])
 
     def test_linked_session_checks_id_and_name_before_recording_resume(self):
         linked = '9' * 36

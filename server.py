@@ -8,6 +8,7 @@ from contextlib import closing
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -146,6 +147,18 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def source_ip(self):
+        peer = self.client_address[0]
+        if ip_address(peer) not in getattr(self.server, 'trusted_proxies', ()):
+            return peer
+        forwarded = self.headers.get_all('X-Real-IP', [])
+        if len(forwarded) != 1 or '%' in forwarded[0]:
+            return peer
+        try:
+            return str(ip_address(forwarded[0].strip()))
+        except ValueError:
+            return peer
+
     def log_request(self, code='-', size='-'):
         # Keep participant names out of HTTP access logs.
         self.log_message('"%s %s %s" %s %s', self.command, urlsplit(self.path).path,
@@ -194,7 +207,7 @@ class Handler(SimpleHTTPRequestHandler):
                         require(isinstance(test_id, str) and TEST_ID.fullmatch(test_id))
                         require(not re.search(r'[\x00-\x1f\x7f]', name))
                     db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms,version,conditions,test_id) VALUES(?,?,?,?,?,?,?)',
-                               (session, name.strip(), self.client_address[0], timestamp, body['version'], flags, test_id))
+                               (session, name.strip(), self.source_ip(), timestamp, body['version'], flags, test_id))
                     if test_id is not None:
                         row = db.execute('SELECT test_id,participant_name FROM sessions WHERE session=?', (session,)).fetchone()
                         require(row == (test_id, name.strip()))
@@ -215,7 +228,7 @@ class Handler(SimpleHTTPRequestHandler):
                         require(body['page'] in PAGES and body['page'] != 'cover')
                         require(type(body['client_ms']) is int and body['client_ms'] > 0)
                         db.execute('INSERT OR IGNORE INTO session_returns(return_id,session,attempt,page,client_ms,ip) VALUES(?,?,?,?,?,?)',
-                                   (return_id, session, attempt, body['page'], body['client_ms'], self.client_address[0]))
+                                   (return_id, session, attempt, body['page'], body['client_ms'], self.source_ip()))
                         require(db.execute('SELECT session FROM session_returns WHERE return_id=?', (return_id,)).fetchone()[0] == session)
                         result = {'last_seq': db.execute('SELECT COALESCE(MAX(seq),0) FROM events WHERE session=?', (session,)).fetchone()[0]}
                     elif path == '/api/attempts':
@@ -288,6 +301,8 @@ def main():
     parser.add_argument('--port', type=int, default=8767)
     parser.add_argument('--bind', default='0.0.0.0')
     parser.add_argument('--database', type=Path, default=ROOT / 'data' / 'study.sqlite3')
+    parser.add_argument('--trusted-proxy', type=ip_address, action='append', default=[],
+                        help='IP of a reverse proxy allowed to set X-Real-IP (repeatable)')
     args = parser.parse_args()
     booking = read_data('booking-data.js')
     regions = {province + city + district for province, cities in read_data('regions.js').items()
@@ -295,6 +310,7 @@ def main():
     initialize_database(args.database, booking)
     with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
         server.database, server.booking, server.regions = args.database, booking, regions
+        server.trusted_proxies = frozenset(args.trusted_proxy)
         print(f'Listening on {args.bind}:{args.port}', flush=True)
         server.serve_forever()
 
