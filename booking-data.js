@@ -680,5 +680,15 @@ window.BOOKING_DATA = {
     "学生",
     "其他"
   ],
-  "resendSeconds": 30
+  "resendSeconds": 30,
+  "guideImages": {
+    "home": "assets/guide-home.webp",
+    "campuses": [
+      "assets/guide-binjiang.webp",
+      "assets/guide-jiefang.webp",
+      "assets/guide-chengdong.webp",
+      "assets/guide-boao.webp",
+      "assets/guide-eye.webp"
+    ]
+  }
 };

@@ -73,6 +73,16 @@ class ServerTests(unittest.TestCase):
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.headers['Cache-Control'], 'no-cache')
 
+    def test_all_six_illustrated_guide_assets_are_served(self):
+        images = BOOKING['guideImages']
+        paths = [images['home'], *images['campuses']]
+        self.assertEqual(len(set(paths)), 6)
+        for path in paths:
+            with urlopen('http://127.0.0.1:%d/%s' % (self.server.server_port, path)) as response:
+                self.assertEqual(response.status, 200)
+                self.assertIn('image/webp', response.headers['Content-Type'])
+                self.assertGreater(len(response.read()), 10000)
+
     def test_session_metadata(self):
         row = self.rows('SELECT participant_name,ip,version,conditions FROM sessions')[0]
         self.assertEqual(row[:3], ('参与者', '127.0.0.1', BOOKING['version']))

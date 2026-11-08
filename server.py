@@ -142,7 +142,9 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def send_head(self):
-        if urlsplit(self.path).path not in STATIC:
+        guides = self.server.booking['guideImages']
+        guide_paths = {'/' + value for value in [guides['home'], *guides['campuses']]}
+        if urlsplit(self.path).path not in STATIC | guide_paths:
             self.send_error(404)
             return None
         return super().send_head()

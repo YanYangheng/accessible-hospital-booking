@@ -107,3 +107,20 @@ test('returning cover offers resume, restores saved fields, and restart restores
   assert.ok(app.nodes['#view'].innerHTML.includes('id="test-entry"'));
   assert.ok(!app.nodes['#view'].innerHTML.includes('从离开位置继续'));
 });
+
+test('each campus opens its own illustrated guide and home preparation stays independent',async()=>{
+  const app=environment();
+  const images=new Set();
+  for(let index=0;index<5;index++){
+    app.run(`state.campus=campusData[${index}][0];state.page='method';`);
+    await action(app,'guide');
+    const image=app.run(`booking.guideImages.campuses[${index}]`);
+    images.add(image);
+    assert.ok(app.nodes['#view'].innerHTML.includes('src="'+image+'"'));
+    assert.ok(app.nodes['#view'].innerHTML.includes('guide-card'));
+  }
+  assert.equal(images.size,5);
+  await action(app,'home');await action(app,'guide:home');
+  assert.ok(app.nodes['#view'].innerHTML.includes('src="assets/guide-home.webp"'));
+  assert.ok(!app.nodes['#view'].innerHTML.includes('当前尚未预约'));
+});

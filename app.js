@@ -32,7 +32,7 @@ const paths = {
 const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
-  page:'cover', doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
+  page:'cover', guideContext:null, doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
   verified:false, archived:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
@@ -209,7 +209,7 @@ function render(preserveScroll=false) {
       content = `<section class="hero"><span class="eyebrow">门诊服务</span>${artwork}<h1>预约挂号</h1><p>选择就诊时间，按提示完成首次就诊准备。</p>${btn('开始预约 '+icon('next'),'start')}</section>
       <section class="section"><div class="row"><h2>就医服务</h2></div><div class="stack below">
       ${choice('我的预约',state.receipt?'查看本次预约记录':'查看的预约状态','records','calendar')}
-      ${choice('首次就诊准备','了解线上建档和到院人工协助','guide','person')}</div></section>
+      ${choice('首次就诊准备','了解线上建档和到院人工协助','guide:home','person')}</div></section>
       <p class="footnote"></p>`;
       break;
     case 'campus':
@@ -293,13 +293,19 @@ function render(preserveScroll=false) {
         : intro('我的预约','还没有预约记录。');
       footer = btn('返回首页','home');
       break;
-    case 'guide':
-      content = intro('到院人工协助','适合希望在工作人员协助下建档的就诊人。')+
-        callout('当前尚未预约','此处提供建档办理指引。完成办理后，可再次进入线上预约。','warn')+
-        `<section class="card below"><h2>办理指引</h2>${pairList([['办理地点',esc(state.campus||'所选院区')+'门诊服务台'],['所需材料','本人有效身份证件'],['办理时间','以院区服务公告为准'],['下一步','请服务台协助建档，完成后继续预约']])}</section>
-        <p class="footnote">具体安排以院区公告为准。</p>`;
-      footer = btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
+    case 'guide': {
+      const general=state.guideContext==='home'||!state.campus;
+      const campusIndex=campusData.findIndex(([name])=>name===state.campus);
+      const image=general?booking.guideImages.home:booking.guideImages.campuses[campusIndex];
+      const description=general
+        ? '首次就诊准备。准备身份证件和手机，在线核对身份并填写建档资料，确认医生、日期和时段，携带证件按预约安排到院。如需人工协助，可到所选院区门诊服务台咨询。具体安排以院区公告为准。'
+        : state.campus+'人工建档办理指引。携带本人有效身份证件，到门诊服务台说明需求，在工作人员协助下核对资料，完成建档后返回线上预约。具体办理地点和时间以院区公告为准。';
+      content=intro(general?'首次就诊准备':'到院人工协助',general?'了解建档、预约与到院就诊的基本步骤。':'适合希望在工作人员协助下建档的就诊人。')+
+        (general?'':callout('当前尚未预约','此处提供建档办理指引。完成办理后，可再次进入线上预约。','warn'))+
+        `<section class="card below guide-card"><img class="guide-image" src="${image}" width="1024" height="1536" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
+      footer=btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
       break;
+    }
     case 'settings':
       content = intro('','从首页启动下一次演示，统一任务情境。')+
         `<section class="card"><label class="field"><span>建档完成时的号源状态</span><select id="expiry"><option value="0">原号源仍可用</option><option value="1" ${scenario.expiry?'selected':''}>原号源失效，触发重选</option></select></label>
@@ -623,9 +629,9 @@ document.addEventListener('click',async event=>{
       break;
     case 'method':
     case 'archive':
-    case 'guide':
     case 'records':
     case 'settings': go(action);break;
+    case 'guide': state.guideContext=index==='home'?'home':'campus';go('guide');break;
     case 'field-region': openRegion(target);break;
     case 'send': {
       const phone=document.querySelector('#phone');
