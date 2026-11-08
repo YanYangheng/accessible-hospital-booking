@@ -49,8 +49,9 @@ html,body{touch-action:pan-x pan-y}
 .booking-tabs button[aria-pressed=true]{color:var(--blue);border-bottom-color:var(--blue);background:#edf5ff;font-weight:700}
 .doctor-days{margin-bottom:18px}
 .doctor-list{background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}
-.doctor-row{display:grid;grid-template-columns:var(--portrait-size,48px) minmax(0,1fr) auto;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--line)}
-.doctor-row:last-child{border-bottom:0}
+.doctor-row{display:grid;grid-template-columns:var(--portrait-size,48px) minmax(0,1fr) auto;align-items:center;gap:10px;padding:14px}
+.doctor-entry{border-bottom:1px solid var(--line)}
+.doctor-entry:last-child{border-bottom:0}
 .doctor-avatar{width:var(--portrait-size,48px);height:var(--portrait-size,48px);aspect-ratio:1;border-radius:50%;background-image:url('assets/doctors-grid.png');background-size:500% 500%;background-repeat:no-repeat}
 .doctor-copy{flex:1;min-width:0}
 .doctor-copy h2{font-size:18px}
@@ -84,3 +85,6 @@ html,body{touch-action:pan-x pan-y}
 .test-cover #bottom{border:0;background:transparent;text-align:center}
 .test-cover #bottom .ghost{font-size:12px;font-weight:400;color:var(--muted)}
 .cover-content .err{margin-top:8px}
+
+.doctor-date-panel{margin:0 12px 14px;padding:14px 10px;background:#f3f7fc;border:1px solid #e1e9f3;border-radius:12px}
+.doctor-date-panel h2{font-size:16px}

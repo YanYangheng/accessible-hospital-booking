@@ -86,7 +86,8 @@ const portraitObserver = new ResizeObserver(entries => {
   }
 });
 
-function render() {
+function render(preserveScroll=false) {
+  const previousScroll=view.scrollTop;
   const isCover=state.page==='cover';
   document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
@@ -130,12 +131,10 @@ function render() {
         <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button></div>`;
       if(state.mode==='date') content+=dateChoices();
       content+=`<div class="doctor-list">${window.BOOKING_DOCTORS.filter(d=>d.department===departments.indexOf(state.dept) && (state.mode==='doctor' || d.schedule[state.date]!=='off')).map(d=>`
-        <article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
+        <div class="doctor-entry"><article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
         <div class="doctor-copy"><div class="doctor-heading"><h2>${d.name}</h2><span class="doctor-title">${d.title}</span></div><p class="doctor-bio">${d.bio}</p></div>
-        <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>`).join('')}</div>`;
-      if(state.mode==='doctor' && state.doctor!==null) {
-        content+=`<section class="card below"><h2>${window.BOOKING_DOCTORS[state.doctor].name} · 选择日期</h2>${dateChoices(true)}${window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>`;
-      }
+        <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" ${state.mode==='doctor' ? `aria-expanded="${state.doctor===d.id}" aria-controls="doctor-dates-${d.id}"` : ''} aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>
+        ${state.mode==='doctor'&&state.doctor===d.id ? `<section class="doctor-date-panel" id="doctor-dates-${d.id}"><h2>${d.name} · 选择日期</h2>${dateChoices(true)}${d.schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(d.schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>` : ''}</div>`).join('')}</div>`;
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
@@ -215,7 +214,7 @@ function render() {
   view.innerHTML = content;
   view.querySelectorAll('.doctor-copy').forEach(copy => portraitObserver.observe(copy));
   bottom.innerHTML = footer;
-  view.scrollTop = 0;
+  view.scrollTop = preserveScroll ? previousScroll : 0;
   view.focus({preventScroll:true});
   refreshSms();
 }
@@ -446,6 +445,11 @@ document.addEventListener('click',async event=>{
       render();
       break;
     case 'doctor':
+      if(state.mode==='doctor'&&state.doctor===Number(index)) {
+        state.doctor=null;
+        render(true);
+        break;
+      }
       if(state.mode==='date'&&window.BOOKING_DOCTORS[Number(index)].schedule[state.date]!=='available') break;
       state.doctor=Number(index);
       if(state.mode==='doctor'&&window.BOOKING_DOCTORS[state.doctor].schedule[state.date]!=='available') {
@@ -453,15 +457,15 @@ document.addEventListener('click',async event=>{
         state.dateAnchor=state.date;
       }
       if(state.mode==='date') go('slots');
-      else {render();view.scrollTop=view.scrollHeight;}
+      else {render(true);}
       break;
     case 'doctor-next': if(window.BOOKING_DOCTORS[state.doctor]?.schedule[state.date]==='available') go('slots');break;
     case 'change-doctor': go('doctors');break;
     case 'date':
       if(state.mode==='doctor'&&state.doctor!==null&&window.BOOKING_DOCTORS[state.doctor].schedule[Number(index)]!=='available') break;
       state.date=Number(index);
-      render();
-      document.querySelector(`[data-action="date:${index}"]`).focus();
+      render(true);
+      document.querySelector(`[data-action="date:${index}"]`).focus({preventScroll:true});
       break;
     case 'slot':
       if(window.BOOKING_DOCTORS[state.doctor]?.schedule[state.date]!=='available') break;
