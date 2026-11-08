@@ -209,8 +209,10 @@ function render(preserveScroll=false) {
   if(state.page==='cover') recoveryRecord=study.getProgress();
   const previousScroll=view.scrollTop;
   const isCover=state.page==='cover';
-  document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
+  const device = document.querySelector('.device');
+  device.classList.toggle('test-cover',isCover);
+  device.classList.toggle('home-background',isHome);
   const showHomeButton = state.page === 'success' || (state.page === 'records' && state.receipt);
   const headerButton = showHomeButton
     ? `<button type="button" class="back" data-action="home" aria-label="返回首页">${icon('home')}</button>`
