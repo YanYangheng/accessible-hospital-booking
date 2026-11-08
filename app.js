@@ -134,7 +134,7 @@ function render() {
         <div class="doctor-copy"><div class="doctor-heading"><h2>${d.name}</h2><span class="doctor-title">${d.title}</span></div><p class="doctor-bio">${d.bio}</p></div>
         <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>`).join('')}</div>`;
       if(state.mode==='doctor' && state.doctor!==null) {
-        content+=`<section class="card below"><h2>${window.BOOKING_DOCTORS[state.doctor].name} · 选择日期</h2>${dateChoices()}${window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>`;
+        content+=`<section class="card below"><h2>${window.BOOKING_DOCTORS[state.doctor].name} · 选择日期</h2>${dateChoices(true)}${window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='available'?btn('查看当天就诊时间','doctor-next'):'<p class="muted below">该医生当天'+(window.BOOKING_DOCTORS[state.doctor].schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>`;
       }
       break;
     case 'slots':
@@ -224,14 +224,14 @@ function visibleDateIndices(selected) {
   const first=Math.max(0,Math.min(selected-1,dates.length-3));
   return [first,first+1,first+2];
 }
-function dateChoices() {
-  return `<div class="days doctor-days">${visibleDateIndices(state.dateAnchor).map(index=>{
+function dateChoices(expanded=false) {
+  return `<div class="days doctor-days">${(expanded?dates.map((_,index)=>index):visibleDateIndices(state.dateAnchor)).map(index=>{
     const [date,day]=dates[index];
     const status=state.mode==='doctor'&&state.doctor!==null ? window.BOOKING_DOCTORS[state.doctor].schedule[index] : null;
     return `<button type="button" class="day" ${status&&status!=='available'?'disabled':''} aria-pressed="${state.date===index}" data-action="date:${index}">${day}<small>${date}</small>${status?'<small>'+({available:'有号',full:'约满',off:'停诊'}[status])+'</small>':''}</button>`;
-  }).join('')}<label class="day more-date">${icon('calendar')}<small>更多</small>
+  }).join('')}${expanded?'':`<label class="day more-date">${icon('calendar')}<small>更多</small>
   <input id="booking-date" type="date" aria-label="选择更多预约日期" min="2026-10-13" max="2026-10-19" value="2026-10-${13+state.date}">
-  </label></div>`;
+  </label>`}</div>`;
 }
 document.addEventListener('change',event=>{
   if(event.target.id!=='booking-date') return;
