@@ -92,7 +92,9 @@ html,body{touch-action:pan-x pan-y}
 .doctor-summary{display:flex;align-items:center;gap:12px;padding:14px}
 .doctor-summary>.doctor-avatar{width:56px;height:56px;flex:none}
 .doctor-summary-copy{min-width:0;flex:1}
-.doctor-summary-copy h2{margin:0 0 4px}
+.doctor-summary-copy h2{margin:0}
 
 .choice .arrow{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .slot-price{font-size:15px;font-weight:650;white-space:nowrap}
+
+#sms-status:empty{display:none}

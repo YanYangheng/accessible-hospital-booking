@@ -145,7 +145,7 @@ function render(preserveScroll=false) {
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
-        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p></div></section>
+        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><div class="doctor-heading"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><span class="doctor-title">${esc(window.BOOKING_DOCTORS[state.doctor].title)}</span></div><p>${dates[state.date].join(' ')} · ${esc(state.dept)}</p></div></section>
         <div class="row"><h2>当天可选时段</h2></div>
         <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
@@ -153,9 +153,9 @@ function render(preserveScroll=false) {
         <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
       break;
     case 'login':
-      content = progress(1)+intro('验证手机号码','用于确认就诊联系信息。')+summary('已选择')+
+      content = progress(1)+intro('登录账号','手机号码验证登录')+summary('已选择')+
         `<form id="login-form" class="card" autocomplete="off"><label class="field" for="phone">手机号码
-        ${withIcon(`<input id="phone" name="phone" inputmode="numeric" maxlength="11" placeholder="例如 13800000000" value="${esc(state.phone)}" required pattern="1[0-9]{10}">`, "phone")}</label>
+        ${withIcon(`<input id="phone" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入11位手机号" value="${esc(state.phone)}" required pattern="1[0-9]{10}">`, "phone")}</label>
         <div class="sms-row"><label class="field" for="code">短信验证码${withIcon(`<input id="code" name="code" inputmode="numeric" maxlength="6" placeholder="请输入 6 位验证码" value="${esc(state.code)}" required pattern="[0-9]{6}">`, "code")}</label>
         <div><button class="secondary" type="button" id="send-code" data-action="send">发送验证码</button></div></div>
         <p id="sms-status" class="muted below" aria-live="polite">${smsStatus()}</p></form>`;
@@ -256,7 +256,7 @@ function departmentList(query) {
   return departments.map((name,index)=>name.includes(query)?choice(name,'查看普通门诊号源','department:'+index,departmentIcons[index]):'').join('') || '<p class="muted">没有匹配科室，请试试其他关键词。</p>';
 }
 function smsStatus() {
-  if (!state.sends) return '验证后可继续首次建档。';
+  if (!state.sends) return '';
   if (scenario.delayed && state.sends===1) return '验证码已发送。若未收到，等待后可重新发送。';
   return '验证码已发送。请查收短信。';
 }
