@@ -78,8 +78,7 @@ html,body{touch-action:pan-x pan-y}
 .cover-symbol{display:grid;place-items:center;margin:0 auto 26px;width:68px;height:68px;border-radius:22px;background:#1459ca;color:white;box-shadow:0 10px 28px #1459ca26}
 .cover-symbol .icon{width:32px;height:32px}
 .cover-content h1{text-align:center;font-size:26px;line-height:1.5;letter-spacing:0;margin-bottom:18px}
-.cover-content>p{max-width:280px;width:90%;margin:0 auto 10px;text-align:left;text-indent:2em;line-height:1.9}
-.cover-content>p.cover-notice{margin-bottom:28px;font-size:13px}
+.cover-content>p{max-width:280px;width:90%;margin:0 auto 28px;text-align:left;text-indent:2em;line-height:1.9}
 .cover-content #test-entry{max-width:280px;width:90%;margin:0 auto}
 .cover-content #test-entry .field{margin-top:0}
 .test-cover #bottom{border:0;background:transparent;text-align:center}

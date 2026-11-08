@@ -98,8 +98,7 @@ function render() {
     case 'cover':
       content=`<section class="cover-content"><div class="cover-symbol">${icon('calendar')}</div>
       <h1>预约挂号系统v2原型测试</h1>
-      <p class="muted">本项目关注首次就诊时的线上建档与预约挂号体验。我们根据前期用户测试发现的问题制作了改进原型，希望通过本次体验了解改进后的流程是否清晰、操作是否顺畅。</p>
-      <p class="muted cover-notice">请按照任务要求操作，本次操作会被记录。</p>
+      <p class="muted">本项目关注首次就诊时的线上建档与预约挂号体验。我们根据前期用户测试发现的问题制作了改进原型，希望通过本次体验了解改进后的流程是否清晰、操作是否顺畅。请按照任务要求操作，本次操作会被记录。</p>
       <form id="test-entry" autocomplete="off">
       <label class="field" for="participant-name">
       ${withIcon('<input id="participant-name" aria-label="测试者姓名" name="participant" maxlength="40" required placeholder="请输入您的姓名">','person')}</label>
