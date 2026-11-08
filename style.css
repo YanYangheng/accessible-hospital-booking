@@ -57,3 +57,9 @@ html,body{touch-action:pan-x pan-y}
 .doctor-title{font-size:12px;color:var(--muted);margin:2px 0 5px}
 .doctor-bio{font-size:13px;color:var(--muted);line-height:1.5}
 .doctor-row .secondary{flex:none;padding:7px 10px;min-height:42px;font-size:14px}
+
+.doctor-days{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.doctor-days .day{min-width:0;padding:8px 2px;font-size:14px}
+.doctor-days .day small{font-size:12px}
+.doctor-days .day:disabled{background:#f3f5f8;color:#7a8797;border-color:#e0e5eb}
+.doctor-row .fully-booked{background:#fff0f1;border-color:#edb7be;color:#ae3745;opacity:1}

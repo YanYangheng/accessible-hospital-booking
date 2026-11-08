@@ -52,10 +52,12 @@ class Handler(SimpleHTTPRequestHandler):
                     campus, department, day, slot, fields = body['form']
                     values = (campus, department, day, slot, fields)
                     if any(type(v) is not int or not 0 <= v <= limit
-                           for v, limit in zip(values, (4, 8, 2, 2, 511))):
+                           for v, limit in zip(values, (4, 8, 3, 2, 511))):
                         raise ValueError()
                     doctor = body.get('doctor')
                     if doctor is not None and (type(doctor) is not int or not 0 <= doctor < 27 or doctor // 3 != department):
+                        raise ValueError()
+                    if doctor is not None and self.server.doctors[doctor]['schedule'][day] != 'available':
                         raise ValueError()
                     details = body['details']
                     if not isinstance(details, list) or len(details) != 5 or any(
@@ -110,5 +112,6 @@ if __name__ == '__main__':
         db.commit()
     with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
         server.database = args.database
+        server.doctors = doctor_data
         print(f'Listening on {args.bind}:{args.port}', flush=True)
         server.serve_forever()
