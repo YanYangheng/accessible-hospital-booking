@@ -66,21 +66,18 @@ function visitCard() {
   return `<section class="card"><h2>本次就诊</h2>${pairList(visitDetails())}</section>`;
 }
 
-const offlineArchiveReminder = () => state.offlineArchive
-  ? '<p class="footnote">请提前一小时前往医院进行建档。</p>' : '';
-
 const bookingDoctorSummary = () => (state.offlineArchive ? offlineArchiveNotice() : '')+doctorSummary(state.slot);
 
 pageViews.confirm = () => ({
   content: progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+bookingDoctorSummary()+
-    visitCard()+'<p class="footnote">请核对信息后提交。</p>'+offlineArchiveReminder(),
+    visitCard()+'<p class="footnote">请核对信息后提交。</p>',
   footer: btn('提交预约','submit')
 });
 
 function bookingReceipt(includeProgress) {
   return {
     content:(includeProgress ? progress(4) : '')+`<div class="intro success-heading">${icon('success')}
-      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+bookingDoctorSummary()+visitCard()+offlineArchiveReminder(),
+      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+bookingDoctorSummary()+visitCard(),
     footer:btn('取消预约','cancel-booking','cancel-booking')
   };
 }

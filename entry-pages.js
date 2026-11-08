@@ -29,7 +29,7 @@ pageViews.home = () => {
   return {content, footer};
 };
 
-const offlineArchiveNotice = () => callout('线下人工建档须知','请携带本人有效身份证件，提前一小时前往所选院区办理建档。','warn');
+const offlineArchiveNotice = () => callout('线下人工建档提醒','请携带本人有效身份证件，提前一小时前往所选院区办理建档。','warn');
 
 pageViews.guide = () => {
   let content;
