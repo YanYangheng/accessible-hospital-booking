@@ -69,8 +69,10 @@ function visitCard() {
 const offlineArchiveReminder = () => state.offlineArchive
   ? '<p class="footnote">请提前一小时前往医院进行建档。</p>' : '';
 
+const bookingDoctorSummary = () => (state.offlineArchive ? offlineArchiveNotice() : '')+doctorSummary(state.slot);
+
 pageViews.confirm = () => ({
-  content: progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+doctorSummary(state.slot)+
+  content: progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+bookingDoctorSummary()+
     visitCard()+'<p class="footnote">请核对信息后提交。</p>'+offlineArchiveReminder(),
   footer: btn('提交预约','submit')
 });
@@ -78,7 +80,7 @@ pageViews.confirm = () => ({
 function bookingReceipt(includeProgress) {
   return {
     content:(includeProgress ? progress(4) : '')+`<div class="intro success-heading">${icon('success')}
-      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+doctorSummary(state.slot)+visitCard()+offlineArchiveReminder(),
+      <div><h1>预约成功</h1><p class="muted">请按预约时段到院。</p></div></div>`+bookingDoctorSummary()+visitCard()+offlineArchiveReminder(),
     footer:btn('取消预约','cancel-booking','cancel-booking')
   };
 }

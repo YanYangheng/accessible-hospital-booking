@@ -121,13 +121,20 @@ test('each campus opens its own illustrated guide and home preparation stays ind
     assert.ok(app.nodes['#view'].innerHTML.includes('guide-card'));
   }
   assert.equal(images.size,5);
-  assert.match(app.nodes['#view'].innerHTML,/callout warn[\s\S]*可先预约，到院后建档[\s\S]*guide-card/);
+  assert.match(app.nodes['#view'].innerHTML,/callout warn[\s\S]*线下人工建档须知[\s\S]*guide-card/);
   assert.match(app.nodes['#bottom'].innerHTML,/下一步/);
+  assert.match(app.nodes['#view'].innerHTML,/先预约，后建档[\s\S]*线上填表有困难？您也可以前往线下办理/);
+  assert.doesNotMatch(app.nodes['#view'].innerHTML,/点击「下一步」继续预约/);
   await action(app,'offline-archive');
+  assert.match(app.nodes['#view'].innerHTML,/线下人工建档须知[\s\S]*doctor-summary/);
   assert.match(app.nodes['#view'].innerHTML,/需要线下建档[\s\S]*请核对信息后提交。[\s\S]*请提前一小时前往医院进行建档。/);
   await action(app,'submit');
   assert.match(app.nodes['#view'].innerHTML,/预约成功[\s\S]*请提前一小时前往医院进行建档。/);
   assert.doesNotMatch(app.nodes['#view'].innerHTML,/请核对信息后提交/);
+  assert.match(app.nodes['#view'].innerHTML,/线下人工建档须知[\s\S]*doctor-summary/);
+  app.run("state.offlineArchive=false;render();");
+  assert.doesNotMatch(app.nodes['#view'].innerHTML,/线下人工建档须知/);
+  assert.doesNotMatch(app.run('pageViews.confirm().content'),/线下人工建档须知/);
   await action(app,'home');await action(app,'guide:home');
   assert.ok(app.nodes['#view'].innerHTML.includes('src="assets/guide-home.webp"'));
   assert.ok(!app.nodes['#view'].innerHTML.includes('当前尚未预约'));

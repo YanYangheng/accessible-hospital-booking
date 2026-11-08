@@ -29,6 +29,8 @@ pageViews.home = () => {
   return {content, footer};
 };
 
+const offlineArchiveNotice = () => callout('线下人工建档须知','请携带本人有效身份证件，提前一小时前往所选院区办理建档。','warn');
+
 pageViews.guide = () => {
   let content;
   let footer = '';
@@ -39,8 +41,8 @@ pageViews.guide = () => {
   const description=general
     ? '首次就诊准备。准备身份证件和手机，在线核对身份并填写建档资料，确认医生、日期和时段，携带证件按预约安排到院。如需人工协助，可到所选院区门诊服务台咨询。具体安排以院区公告为准。'
     : state.campus+'人工建档办理指引。先在线完成预约，携带身份证提前一小时到院，到门诊服务台办理建档，完成后到诊区报到候诊。具体办理地点以院区指引为准。';
-  content=intro(general?'首次就诊准备':'到院人工协助',general?'了解建档、预约与到院就诊的基本步骤。':'适合希望在工作人员协助下建档的就诊人。')+
-    (general?'':callout('可先预约，到院后建档','点击「下一步」继续预约。请携带本人有效身份证件，提前一小时前往所选院区办理建档。','warn'))+
+  content=intro(general?'首次就诊准备':'先预约，后建档',general?'了解建档、预约与到院就诊的基本步骤。':'线上填表有困难？您也可以前往线下办理')+
+    (general?'':offlineArchiveNotice())+
     `<section class="card below guide-card"><img class="guide-image" style="--guide-crop:${crop}%" src="${image}" width="${general?1024:1190}" height="${general?1536:1322}" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
   footer=!general&&state.verified&&state.slot
     ? btn('下一步','offline-archive')
