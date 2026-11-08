@@ -78,6 +78,16 @@ const artwork = `<svg class="hero-art" viewBox="0 0 180 170" aria-hidden="true">
 <path d="M35 91v19m-9-9h18m109-74v13m-6-6h12" stroke="#d9edff" stroke-width="2.5" stroke-linecap="round"/>
 </svg>`;
 
+const doctorCopyObserver = new ResizeObserver(entries => {
+  for (const {target} of entries) {
+    const row=target.closest('.doctor-row');
+    const size=target.getBoundingClientRect().height+'px';
+    if(row.style.getPropertyValue('--portrait-size')!==size) {
+      row.style.setProperty('--portrait-size',size);
+    }
+  }
+});
+
 function render() {
   const isHome = state.page === 'home';
   topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
@@ -189,7 +199,9 @@ function render() {
       footer = btn('应用设置并返回首页','apply');
       break;
   }
+  doctorCopyObserver.disconnect();
   view.innerHTML = content;
+  view.querySelectorAll('.doctor-copy').forEach(copy => doctorCopyObserver.observe(copy));
   bottom.innerHTML = footer;
   view.scrollTop = 0;
   view.focus({preventScroll:true});
