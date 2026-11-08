@@ -2,74 +2,157 @@
 
 const study = (() => {
   const online = location.protocol.startsWith('http');
-  let enabled = false;
-  let session, seq, busy = false;
-  const queue = [];
-  async function begin(name, debug=false) {
-    enabled=false;
-    const bytes = crypto.getRandomValues(new Uint8Array(18));
-    session = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
-    seq = 0;
-    if(debug) return true;
-    if(!online) return false;
+  const eventPrefix = 'booking.event.';
+  const rejectedPrefix = 'booking.rejected.';
+  const pending = new Map();
+  let mode = 'inactive', session, attempt = null, sequence = 0;
+  let busy = false, timer, failures = 0, singleEvent = false;
+  let pendingSession, pendingAttempt;
+
+  function id() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(18)), n => n.toString(16).padStart(2, '0')).join('');
+  }
+  function store(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch { /* Keep the memory copy if storage is unavailable or full. */ }
+  }
+  function forget(key) {
+    pending.delete(key);
+    try { localStorage.removeItem(key); } catch { /* Memory acknowledgement still applies. */ }
+  }
+  function restore() {
     try {
-      const response=await fetch('/api/sessions', {
-        method:'POST',body:JSON.stringify({session,name,started_ms:Date.now()})
-      });
-      enabled=response.ok;
-      return enabled;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key.startsWith(eventPrefix)) continue;
+        try {
+          const record = JSON.parse(localStorage.getItem(key));
+          if (record?.event && typeof record.session === 'string' && !pending.has(key)) pending.set(key, record);
+        } catch { /* An unreadable entry must not block other records. */ }
+      }
+    } catch { /* Private browsing may disable persistence. */ }
+  }
+  async function post(path, body) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      return await fetch(path, {method:'POST', body:JSON.stringify(body), signal:controller.signal,
+        headers:{'Content-Type':'application/json'}, keepalive:true});
+    } finally { clearTimeout(timeout); }
+  }
+  async function begin(name, debug = false, conditions = {expiry:false, delayed:false}) {
+    mode = 'inactive';
+    attempt = null;
+    pendingAttempt = null;
+    clearTimeout(timer);
+    if (debug) { mode = 'debug'; return true; }
+    if (!online) return false;
+    if (!pendingSession || pendingSession.name !== name) {
+      pendingSession = {session:id(), name, started_ms:Date.now(), version:window.BOOKING_DATA.version, conditions};
+    }
+    try {
+      const payload = pendingSession;
+      const result = await post('/api/sessions', payload);
+      if (!result.ok) return false;
+      session = payload.session;
+      sequence = 0;
+      pendingSession = null;
+      mode = 'record';
+      restore();
+      schedule(0);
+      return true;
     } catch { return false; }
   }
+  async function beginAttempt(conditions) {
+    if (mode === 'debug') return true;
+    if (mode !== 'record') return false;
+    pendingAttempt ||= {session, attempt:id(), started_ms:Date.now(), conditions};
+    try {
+      const payload = pendingAttempt;
+      const result = await post('/api/attempts', payload);
+      if (!result.ok) return false;
+      attempt = payload.attempt;
+      pendingAttempt = null;
+      log('result', 'home', 'start', {result:'attempt_started'});
+      return true;
+    } catch { return false; }
+  }
+  function schedule(delay = 200) {
+    clearTimeout(timer);
+    if (mode === 'record') timer = setTimeout(() => { timer = null; void flush(); }, delay);
+  }
   function batch() {
-    const id = queue[0].session;
-    const events = queue.slice(0, 75).filter(item => item.session === id).map(item => item.event);
-    return {session:id, events};
+    const entries = Array.from(pending.entries());
+    const firstSession = entries[0][1].session;
+    return entries.filter(([, value]) => value.session === firstSession).slice(0, singleEvent ? 1 : 50);
+  }
+  function quarantine(key, record, reason) {
+    store(rejectedPrefix + key.slice(eventPrefix.length), {...record, reason});
+    forget(key);
   }
   async function flush() {
-    if (!enabled || busy || !queue.length) return;
+    if (mode !== 'record' || busy || !pending.size) return;
     busy = true;
-    const payload = batch();
+    const entries = batch();
     try {
-      const result = await fetch('/api/events', {
-        method:'POST', body:JSON.stringify(payload), keepalive:true
-      });
-      if (result.ok) queue.splice(0, payload.events.length);
-    } catch {
-      // Keep unacknowledged events for the next retry.
-    } finally {
+      const response = await post('/api/events', {session:entries[0][1].session, events:entries.map(([, r]) => r.event)});
+      if (!response.ok) {
+        if ([400, 413, 422].includes(response.status)) {
+          if (entries.length === 1) quarantine(entries[0][0], entries[0][1], 'http_' + response.status);
+          else singleEvent = true;
+        } else throw new Error('Retryable upload failure');
+      } else {
+        const result = await response.json();
+        if (!Array.isArray(result.accepted) || !Array.isArray(result.rejected)) throw new Error('Invalid acknowledgement');
+        for (const index of result.accepted) if (entries[index]) forget(entries[index][0]);
+        for (const item of result.rejected) if (entries[item.index]) {
+          const [key, record] = entries[item.index];
+          quarantine(key, record, item.reason);
+        }
+      }
+      failures = 0;
+    } catch { failures++; }
+    finally {
       busy = false;
+      if (!pending.size) singleEvent = false;
+      if (pending.size) schedule(failures ? Math.min(30000, 1000 * 2 ** Math.min(failures, 5)) : 200);
     }
   }
-  function log(kind, page, control='background') {
-    if (!enabled) return;
-    queue.push({session, event:[++seq, Date.now(), kind, page, control]});
-    void flush();
+  function log(kind, page, control = 'background', details = {}) {
+    if (mode !== 'record') return;
+    const event = {seq:++sequence, client_ms:Date.now(), kind, page, control, attempt, details};
+    const record = {session, event};
+    const key = eventPrefix + session + '.' + event.seq;
+    pending.set(key, record);
+    store(key, record);
+    if (!timer && !busy) schedule();
   }
-  async function save(form, details, doctor) {
-    if (!enabled) return true;
+  async function save(form, details, doctor, profile) {
+    if (mode === 'debug') return true;
+    if (mode !== 'record' || !attempt) return false;
     try {
-      const result = await fetch('/api/submissions', {method:'POST',body:JSON.stringify({session, form, details, doctor})});
-      return result.ok;
-    } catch {
-      return false;
-    }
+      const response = await post('/api/submissions', {session, attempt, form, details, doctor, profile});
+      return response.ok;
+    } catch { return false; }
   }
   function sendOnExit() {
-    const ids = [...new Set(queue.map(item => item.session))];
-    for (const id of ids) {
-      const events = queue.filter(item => item.session === id).map(item => item.event);
-      for (let offset=0; offset<events.length; offset+=75) {
-        navigator.sendBeacon('/api/events', JSON.stringify({session:id,events:events.slice(offset,offset+75)}));
+    if (mode !== 'record') return;
+    const sessions = [...new Set(Array.from(pending.values(), r => r.session))];
+    for (const value of sessions) {
+      const events = Array.from(pending.values()).filter(r => r.session === value).map(r => r.event);
+      for (let offset = 0; offset < events.length; offset += 50) {
+        navigator.sendBeacon('/api/events', JSON.stringify({session:value, events:events.slice(offset, offset + 50)}));
       }
     }
+    // Retain persisted entries until a later acknowledged fetch, even if the beacon was queued.
   }
   if (online) {
-    setInterval(flush, 1500);
-    window.addEventListener('online', flush);
+    window.addEventListener('online', () => { restore(); schedule(0); });
     window.addEventListener('pagehide', sendOnExit);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) sendOnExit();
+      else { restore(); schedule(0); }
     });
   }
-  return {begin,log,save};
+  return {begin, beginAttempt, log, save};
 })();

@@ -1,18 +1,132 @@
-"""Serve the local prototype and store anonymous usability records."""
+"""Serve the prototype and store versioned usability sessions and attempts."""
 import argparse
+import hashlib
 import json
 import re
 import sqlite3
 from contextlib import closing
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
-STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/doctors.js', '/assets/doctors-grid.png', '/assets/hospital-logo.webp'}
-PAGES = set('home campus department doctors slots login method archive expired confirm success records guide settings'.split())
-CONTROL = re.compile(r'(?:home|start|back|doctor-next|change-doctor|mode:doctor|mode:date|send|archive|guide|records|recover|submit|apply|settings|method|sample|background|booking-date|phone|code|search|expiry|delayed|archive-submit|login-submit|field-(?:name|id|gender|birthday|height|weight|job|region|address)|(?:campus|department|doctor|date|slot):[0-9]{1,2})')
-UUID = re.compile(r'[a-f0-9-]{36}')
+STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/booking-data.js',
+          '/regions.js', '/assets/doctors-grid.webp', '/assets/hospital-logo.webp'}
+PAGES = set('cover home campus department doctors slots login method archive expired confirm success records guide settings'.split())
+CONTROL = re.compile(r'[A-Za-z0-9:_-]{1,80}')
+IDENTIFIER = re.compile(r'[a-f0-9]{36}')
+PROFILE_KEYS = ('name', 'id', 'gender', 'birthday', 'height', 'weight', 'job', 'region', 'address')
+
+
+def read_data(filename):
+    return json.loads((ROOT / filename).read_text().split('=', 1)[1].rstrip(';\n'))
+
+
+def require(condition):
+    if not condition:
+        raise ValueError('Invalid record')
+
+
+def identifier(value):
+    require(isinstance(value, str) and IDENTIFIER.fullmatch(value))
+    return value
+
+
+def conditions(value):
+    require(isinstance(value, dict) and set(value) == {'expiry', 'delayed'})
+    require(all(type(flag) is bool for flag in value.values()))
+    return json.dumps(value, sort_keys=True)
+
+
+def initialize_database(path, booking):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(path)) as db, db:
+        db.executescript('''
+            CREATE TABLE IF NOT EXISTS sessions (
+              session TEXT PRIMARY KEY, participant_name TEXT NOT NULL, ip TEXT NOT NULL,
+              started_ms INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS events (
+              session TEXT, seq INTEGER, client_ms INTEGER, kind TEXT, page TEXT, control TEXT,
+              received_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(session,seq)
+            );
+            CREATE TABLE IF NOT EXISTS attempts (
+              attempt TEXT PRIMARY KEY, session TEXT NOT NULL, started_ms INTEGER NOT NULL,
+              conditions TEXT NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS doctors (
+              id INTEGER PRIMARY KEY, name TEXT, department INTEGER, title TEXT, bio TEXT, portrait INTEGER
+            );
+        ''')
+        db.execute('BEGIN IMMEDIATE')
+        for table, additions in {
+            'sessions': {'version': 'TEXT', 'conditions': 'TEXT'},
+            'events': {'attempt': 'TEXT', 'details': 'TEXT'},
+        }.items():
+            columns = {row[1] for row in db.execute(f'PRAGMA table_info({table})')}
+            for name, sql_type in additions.items():
+                if name not in columns:
+                    db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {sql_type}')
+        old_columns = list(db.execute('PRAGMA table_info(submissions)'))
+        legacy = old_columns and any(row[1] == 'session' and row[5] for row in old_columns)
+        if legacy:
+            db.execute('ALTER TABLE submissions RENAME TO submissions_legacy')
+        db.execute('''CREATE TABLE IF NOT EXISTS submissions (
+            attempt TEXT PRIMARY KEY, session TEXT NOT NULL, campus INTEGER, department INTEGER,
+            day INTEGER, slot INTEGER, fields INTEGER, submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            name TEXT, id_number TEXT, phone TEXT, verification_code TEXT, address TEXT, doctor INTEGER,
+            clinic_type TEXT DEFAULT 'ordinary', fee_fen INTEGER DEFAULT 1530, snapshot TEXT
+        )''')
+        if legacy:
+            # Preserve every old value, including original timestamps and nullable doctor IDs.
+            names = [row[1] for row in old_columns]
+            db.execute(f"INSERT INTO submissions(attempt,{','.join(names)}) "
+                       f"SELECT 'legacy-'||session,{','.join(names)} FROM submissions_legacy")
+            db.execute('DROP TABLE submissions_legacy')
+        db.execute('CREATE INDEX IF NOT EXISTS submissions_session ON submissions(session)')
+        for doctor in booking['doctors']:
+            db.execute('INSERT OR REPLACE INTO doctors VALUES(?,?,?,?,?,?)',
+                       tuple(doctor[k] for k in ('id', 'name', 'department', 'title', 'bio', 'portrait')))
+
+
+def validate_submission(body, booking, regions):
+    form = body['form']
+    require(isinstance(form, list) and len(form) == 5 and all(type(v) is int for v in form))
+    campus, department, day, slot, fields = form
+    require(0 <= campus < len(booking['campuses']) and 0 <= department < len(booking['departments']))
+    require(0 <= day < len(booking['dates']) and 0 <= slot < len(booking['dates'][day]['slots']))
+    doctor = body['doctor']
+    require(type(doctor) is int and 0 <= doctor < len(booking['doctors']))
+    person = booking['doctors'][doctor]
+    require(person['department'] == department and person['schedule'][day] == 'available')
+    details = body['details']
+    require(isinstance(details, list) and len(details) == 5 and all(isinstance(v, str) for v in details))
+    name, identity, phone, code, address = details
+    require(1 <= len(name.strip()) <= 20 and 1 <= len(address.strip()) <= 100)
+    require(re.fullmatch(r'1[0-9]{10}', phone) and re.fullmatch(r'[0-9]{6}', code))
+    require(re.fullmatch(r'[0-9]{17}[0-9Xx]', identity))
+    weights = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+    require('10X98765432'[sum(int(v) * w for v, w in zip(identity[:17], weights)) % 11] == identity[-1].upper())
+    birthday = date(int(identity[6:10]), int(identity[10:12]), int(identity[12:14]))
+    require(birthday <= date.today())
+    profile = body['profile']
+    require(isinstance(profile, dict) and all(isinstance(profile.get(k), str) for k in PROFILE_KEYS))
+    require(profile['name'] == name and profile['id'] == identity and profile['address'] == address)
+    require(profile['birthday'] == birthday.isoformat() and profile['gender'] == ('男' if int(identity[16]) % 2 else '女'))
+    for field, low, high in (('height', 30, 250), ('weight', 2, 350)):
+        try:
+            number = Decimal(profile[field])
+            require(number.is_finite() and low <= number <= high and number * 10 % 1 == 0)
+        except InvalidOperation:
+            raise ValueError('Invalid measurement')
+    require(profile['job'] in booking['jobs'] and profile['region'] in regions)
+    require(fields == sum(1 << i for i, k in enumerate(PROFILE_KEYS) if profile[k].strip()) == 511)
+    clinic_key = booking['dates'][day]['slots'][slot]['clinic']
+    fee = booking['clinics'][clinic_key]['fee_fen']
+    snapshot = json.dumps([form, details, doctor], ensure_ascii=False, separators=(',', ':'))
+    return form, details, doctor, clinic_key, fee, hashlib.sha256(snapshot.encode()).hexdigest()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -25,110 +139,108 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         return super().send_head()
 
+    def respond(self, status=204, body=None):
+        self.send_response(status)
+        if body is not None:
+            encoded = json.dumps(body).encode()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(encoded)))
+        self.end_headers()
+        if body is not None:
+            self.wfile.write(encoded)
+
     def do_POST(self):
         try:
             length = int(self.headers.get('Content-Length', 0))
-            if not 0 < length <= 65536:
-                raise ValueError()
+            require(0 < length <= 65536)
             body = json.loads(self.rfile.read(length))
-            session = body['session']
-            if not UUID.fullmatch(session):
-                raise ValueError()
+            require(isinstance(body, dict))
+            session = identifier(body['session'])
             path = urlsplit(self.path).path
+            result = None
             with closing(sqlite3.connect(self.server.database, timeout=10)) as db, db:
                 if path == '/api/sessions':
-                    name = body['name']
-                    started_ms = body['started_ms']
-                    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 40 or type(started_ms) is not int:
-                        raise ValueError()
-                    db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms) VALUES(?,?,?,?)',
-                               (session,name.strip(),self.client_address[0],started_ms))
-                elif path == '/api/events':
-                    events = body['events']
-                    if not isinstance(events, list) or not 1 <= len(events) <= 100:
-                        raise ValueError()
-                    for event in events:
-                        seq, ts, kind, page, control = event
-                        if (type(seq) is not int or seq < 1 or type(ts) is not int
-                                or kind not in ('click', 'view', 'invalid')
-                                or page not in PAGES or not CONTROL.fullmatch(control)):
-                            raise ValueError()
-                        db.execute('INSERT OR IGNORE INTO events(session, seq, client_ms, kind, page, control) VALUES(?,?,?,?,?,?)',
-                                   (session, seq, ts, kind, page, control))
-                elif path == '/api/submissions':
-                    campus, department, day, slot, fields = body['form']
-                    values = (campus, department, day, slot, fields)
-                    if any(type(v) is not int or not 0 <= v <= limit
-                           for v, limit in zip(values, (4, 8, 6, 3, 511))):
-                        raise ValueError()
-                    doctor = body.get('doctor')
-                    if doctor is not None and (type(doctor) is not int or not 0 <= doctor < 27 or doctor // 3 != department):
-                        raise ValueError()
-                    if doctor is not None and self.server.doctors[doctor]['schedule'][day] != 'available':
-                        raise ValueError()
-                    details = body['details']
-                    if not isinstance(details, list) or len(details) != 5 or any(
-                            not isinstance(value, str) or len(value) > limit
-                            for value, limit in zip(details, (20, 18, 11, 6, 100))):
-                        raise ValueError()
-                    db.execute("""INSERT OR IGNORE INTO submissions
-                               (session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor,clinic_type,fee_fen)
-                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                               (session, *values, *details, doctor, 'special' if slot == 3 else 'ordinary',
-                                8250 if slot == 3 else 1530))
+                    name, timestamp = body['name'], body['started_ms']
+                    require(isinstance(name, str) and 1 <= len(name.strip()) <= 40 and type(timestamp) is int and timestamp > 0)
+                    require(body['version'] == self.server.booking['version'])
+                    flags = conditions(body['conditions'])
+                    db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms,version,conditions) VALUES(?,?,?,?,?,?)',
+                               (session, name.strip(), self.client_address[0], timestamp, body['version'], flags))
                 else:
-                    self.send_error(404)
-                    return
+                    require(db.execute('SELECT 1 FROM sessions WHERE session=?', (session,)).fetchone())
+                    if path == '/api/attempts':
+                        attempt = identifier(body['attempt'])
+                        require(type(body['started_ms']) is int and body['started_ms'] > 0)
+                        db.execute('INSERT OR IGNORE INTO attempts(attempt,session,started_ms,conditions) VALUES(?,?,?,?)',
+                                   (attempt, session, body['started_ms'], conditions(body['conditions'])))
+                        require(db.execute('SELECT session FROM attempts WHERE attempt=?', (attempt,)).fetchone()[0] == session)
+                    elif path == '/api/events':
+                        result = self.save_events(db, session, body['events'])
+                    elif path == '/api/submissions':
+                        attempt = identifier(body['attempt'])
+                        require(db.execute('SELECT 1 FROM attempts WHERE attempt=? AND session=?', (attempt, session)).fetchone())
+                        form, details, doctor, clinic, fee, snapshot = validate_submission(body, self.server.booking, self.server.regions)
+                        previous = db.execute('SELECT snapshot FROM submissions WHERE attempt=?', (attempt,)).fetchone()
+                        if previous and previous[0] != snapshot:
+                            self.respond(409, {'error': 'attempt_already_submitted'})
+                            return
+                        db.execute('''INSERT OR IGNORE INTO submissions
+                            (attempt,session,campus,department,day,slot,fields,name,id_number,phone,verification_code,address,doctor,clinic_type,fee_fen,snapshot)
+                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                            (attempt, session, *form, *details, doctor, clinic, fee, snapshot))
+                    else:
+                        self.respond(404)
+                        return
+            self.respond(200 if result is not None else 204, result)
         except (ValueError, KeyError, TypeError, OverflowError):
-            self.send_error(400, 'Invalid record')
-            return
+            self.respond(400, {'error': 'invalid_record'})
         except sqlite3.Error:
-            self.send_error(503, 'Storage unavailable')
-            return
-        self.send_response(204)
-        self.end_headers()
+            self.respond(503, {'error': 'storage_unavailable'})
+
+    def save_events(self, db, session, events):
+        require(isinstance(events, list) and 1 <= len(events) <= 100)
+        accepted, rejected = [], []
+        for index, event in enumerate(events):
+            try:
+                if isinstance(event, list):
+                    require(len(event) == 5)
+                    event = dict(zip(('seq', 'client_ms', 'kind', 'page', 'control'), event))
+                require(isinstance(event, dict))
+                seq, timestamp = event['seq'], event['client_ms']
+                kind, page, control = event['kind'], event['page'], event['control']
+                require(type(seq) is int and seq > 0 and type(timestamp) is int and timestamp > 0)
+                require(kind in ('click', 'view', 'invalid', 'submit', 'result', 'dialog') and page in PAGES)
+                require(isinstance(control, str) and CONTROL.fullmatch(control))
+                attempt = event.get('attempt')
+                if attempt is not None:
+                    identifier(attempt)
+                    require(db.execute('SELECT 1 FROM attempts WHERE attempt=? AND session=?', (attempt, session)).fetchone())
+                details = event.get('details', {})
+                require(isinstance(details, dict) and len(details) <= 12)
+                require(all(isinstance(k, str) and len(k) <= 40 and isinstance(v, (str, int, bool)) and len(str(v)) <= 200 for k, v in details.items()))
+                db.execute('INSERT OR IGNORE INTO events(session,seq,client_ms,kind,page,control,attempt,details) VALUES(?,?,?,?,?,?,?,?)',
+                           (session, seq, timestamp, kind, page, control, attempt, json.dumps(details)))
+                accepted.append(index)
+            except (ValueError, KeyError, TypeError):
+                rejected.append({'index': index, 'reason': 'invalid_event'})
+        return {'accepted': accepted, 'rejected': rejected}
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8767)
     parser.add_argument('--bind', default='0.0.0.0')
     parser.add_argument('--database', type=Path, default=ROOT / 'data' / 'study.sqlite3')
     args = parser.parse_args()
-    args.database.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(args.database)) as db:
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS sessions (
-              session TEXT PRIMARY KEY, participant_name TEXT NOT NULL, ip TEXT NOT NULL,
-              started_ms INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS events (
-              session TEXT, seq INTEGER, client_ms INTEGER, kind TEXT, page TEXT, control TEXT,
-              received_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(session,seq)
-            );
-            CREATE TABLE IF NOT EXISTS submissions (
-              session TEXT PRIMARY KEY, campus INTEGER, department INTEGER, day INTEGER,
-              slot INTEGER, fields INTEGER, submitted_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        columns = {row[1] for row in db.execute('PRAGMA table_info(submissions)')}
-        for column in ('name', 'id_number', 'phone', 'verification_code', 'address'):
-            if column not in columns:
-                db.execute(f'ALTER TABLE submissions ADD COLUMN {column} TEXT')
-        if 'doctor' not in columns:
-            db.execute('ALTER TABLE submissions ADD COLUMN doctor INTEGER')
-        if 'clinic_type' not in columns:
-            db.execute("ALTER TABLE submissions ADD COLUMN clinic_type TEXT DEFAULT 'ordinary'")
-        if 'fee_fen' not in columns:
-            db.execute('ALTER TABLE submissions ADD COLUMN fee_fen INTEGER DEFAULT 1530')
-        db.execute('CREATE TABLE IF NOT EXISTS doctors (id INTEGER PRIMARY KEY, name TEXT, department INTEGER, title TEXT, bio TEXT, portrait INTEGER)')
-        doctor_data = json.loads((ROOT / 'doctors.js').read_text().split('=', 1)[1].rstrip(';\n'))
-        for doctor in doctor_data:
-            db.execute('INSERT OR REPLACE INTO doctors VALUES(?,?,?,?,?,?)',
-                       tuple(doctor[k] for k in ('id','name','department','title','bio','portrait')))
-        db.commit()
+    booking = read_data('booking-data.js')
+    regions = {province + city + district for province, cities in read_data('regions.js').items()
+               for city, districts in cities.items() for district in districts}
+    initialize_database(args.database, booking)
     with ThreadingHTTPServer((args.bind, args.port), Handler) as server:
-        server.database = args.database
-        server.doctors = doctor_data
+        server.database, server.booking, server.regions = args.database, booking, regions
         print(f'Listening on {args.bind}:{args.port}', flush=True)
         server.serve_forever()
+
+
+if __name__ == '__main__':
+    main()
