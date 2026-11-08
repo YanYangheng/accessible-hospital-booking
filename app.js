@@ -34,7 +34,7 @@ const paths = {
 const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
-  page:'home', doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
+  page:'cover', doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
   verified:false, archived:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
@@ -87,11 +87,25 @@ const portraitObserver = new ResizeObserver(entries => {
 });
 
 function render() {
+  const isCover=state.page==='cover';
+  document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
   topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
+  topBar.hidden=isCover;
   let content = '';
   let footer = '';
   switch (state.page) {
+    case 'cover':
+      content=`<section class="cover-content"><div class="cover-symbol">${icon('calendar')}</div>
+      <h1>预约挂号系统v2原型测试</h1>
+      <p class="muted">欢迎参加本次测试。请按照任务要求体验预约挂号流程，本次操作会被记录。</p>
+      <form id="test-entry" autocomplete="off">
+      <label class="field" for="participant-name">测试者姓名
+      ${withIcon('<input id="participant-name" name="participant" maxlength="40" required placeholder="请输入您的姓名">','person')}</label>
+      <p class="err" id="entry-error" role="alert"></p>
+      <button class="primary below" type="submit">进入测试</button></form></section>`;
+      footer=btn('进入调试模式','debug','ghost');
+      break;
     case 'home':
       content = `<section class="hero"><span class="eyebrow">门诊服务</span>${artwork}<h1>预约挂号</h1><p>选择就诊时间，按提示完成首次就诊准备。</p>${btn('开始预约 '+icon('next'),'start')}</section>
       <section class="section"><div class="row"><h2>就医服务</h2></div><div class="stack below">
@@ -362,8 +376,25 @@ function handleInput(event) {
 }
 document.addEventListener('input',handleInput);
 document.addEventListener('change',handleInput);
-document.addEventListener('submit',event=>{
+document.addEventListener('submit',async event=>{
   event.preventDefault();
+  if(event.target.id==='test-entry') {
+    const name=event.target.elements.namedItem('participant').value.trim();
+    if(!name) {
+      document.querySelector('#entry-error').textContent='请填写姓名。';
+      return;
+    }
+    const button=event.target.querySelector('button');
+    button.disabled=true;
+    if(await study.begin(name)) {
+      history=[];
+      go('home',false);
+    } else {
+      button.disabled=false;
+      document.querySelector('#entry-error').textContent='暂时无法开始测试，请检查网络后重试。';
+    }
+    return;
+  }
   if (event.target.matches('#archive-form')) {
     const form=event.target;
     const id=form.elements.namedItem('id');
@@ -386,13 +417,18 @@ document.addEventListener('click',async event=>{
   const code=target?.dataset.action || (control?.form?.id && control.type==='submit'
     ? control.form.getAttribute('id').replace('-form','-submit') : control?.id || 'background');
   if (code==='archive-submit') document.activeElement?.blur();
-  if (code==='start') study.begin();
+
   study.log('click',state.page,code);
   if (!target) return;
   const [action,index]=target.dataset.action.split(':');
   switch(action) {
+    case 'debug':
+      await study.begin('',true);
+      history=[];
+      go('home',false);
+      break;
     case 'home': history=[];go('home',false);break;
-    case 'start': reset();go('campus');break;
+    case 'start': reset();go('campus',false);break;
     case 'back':
       if (state.page==='confirm' && state.recovery) {go('slots',false);break;}
       if (state.page==='confirm' || state.page==='expired') {state.recovery=false;go('slots',false);break;}

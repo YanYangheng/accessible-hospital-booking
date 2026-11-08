@@ -36,7 +36,14 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError()
             path = urlsplit(self.path).path
             with closing(sqlite3.connect(self.server.database, timeout=10)) as db, db:
-                if path == '/api/events':
+                if path == '/api/sessions':
+                    name = body['name']
+                    started_ms = body['started_ms']
+                    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 40 or type(started_ms) is not int:
+                        raise ValueError()
+                    db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms) VALUES(?,?,?,?)',
+                               (session,name.strip(),self.client_address[0],started_ms))
+                elif path == '/api/events':
                     events = body['events']
                     if not isinstance(events, list) or not 1 <= len(events) <= 100:
                         raise ValueError()
@@ -89,6 +96,10 @@ if __name__ == '__main__':
     args.database.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(args.database)) as db:
         db.executescript("""
+            CREATE TABLE IF NOT EXISTS sessions (
+              session TEXT PRIMARY KEY, participant_name TEXT NOT NULL, ip TEXT NOT NULL,
+              started_ms INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
             CREATE TABLE IF NOT EXISTS events (
               session TEXT, seq INTEGER, client_ms INTEGER, kind TEXT, page TEXT, control TEXT,
               received_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(session,seq)

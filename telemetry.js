@@ -1,13 +1,24 @@
 'use strict';
 
 const study = (() => {
-  const enabled = location.protocol.startsWith('http');
+  const online = location.protocol.startsWith('http');
+  let enabled = false;
   let session, seq, busy = false;
   const queue = [];
-  function begin() {
+  async function begin(name, debug=false) {
+    enabled=false;
     const bytes = crypto.getRandomValues(new Uint8Array(18));
     session = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
     seq = 0;
+    if(debug) return true;
+    if(!online) return false;
+    try {
+      const response=await fetch('/api/sessions', {
+        method:'POST',body:JSON.stringify({session,name,started_ms:Date.now()})
+      });
+      enabled=response.ok;
+      return enabled;
+    } catch { return false; }
   }
   function batch() {
     const id = queue[0].session;
@@ -52,8 +63,7 @@ const study = (() => {
       }
     }
   }
-  begin();
-  if (enabled) {
+  if (online) {
     setInterval(flush, 1500);
     window.addEventListener('online', flush);
     window.addEventListener('pagehide', sendOnExit);
