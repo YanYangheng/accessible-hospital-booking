@@ -13,9 +13,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
 STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/booking-data.js',
-          '/regions.js', '/assets/doctors-grid.webp', '/assets/hospital-logo.webp'}
+          '/regions.js', '/entry-pages.js', '/booking-pages.js', '/patient-pages.js', '/startup.js', '/assets/doctors-grid.webp', '/assets/hospital-logo.webp'}
 PAGES = set('cover home campus department doctors slots login method archive expired confirm success records guide settings'.split())
 CONTROL = re.compile(r'[A-Za-z0-9:_-]{1,80}')
+TEST_ID = re.compile(r'[A-Za-z0-9_-]{1,40}')
 IDENTIFIER = re.compile(r'[a-f0-9]{36}')
 PROFILE_KEYS = ('name', 'id', 'gender', 'birthday', 'height', 'weight', 'job', 'region', 'address')
 
@@ -66,7 +67,7 @@ def initialize_database(path, booking):
         ''')
         db.execute('BEGIN IMMEDIATE')
         for table, additions in {
-            'sessions': {'version': 'TEXT', 'conditions': 'TEXT'},
+            'sessions': {'version': 'TEXT', 'conditions': 'TEXT', 'test_id': 'TEXT'},
             'events': {'attempt': 'TEXT', 'details': 'TEXT'},
         }.items():
             columns = {row[1] for row in db.execute(f'PRAGMA table_info({table})')}
@@ -137,8 +138,14 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def log_request(self, code='-', size='-'):
+        # Keep participant names out of HTTP access logs.
+        self.log_message('"%s %s %s" %s %s', self.command, urlsplit(self.path).path,
+                         self.request_version, str(code), str(size))
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Referrer-Policy', 'no-referrer')
         super().end_headers()
 
     def send_head(self):
@@ -174,14 +181,24 @@ class Handler(SimpleHTTPRequestHandler):
                     require(isinstance(name, str) and 1 <= len(name.strip()) <= 40 and type(timestamp) is int and timestamp > 0)
                     require(body['version'] == self.server.booking['version'])
                     flags = conditions(body['conditions'])
-                    db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms,version,conditions) VALUES(?,?,?,?,?,?)',
-                               (session, name.strip(), self.client_address[0], timestamp, body['version'], flags))
+                    test_id = body.get('test_id')
+                    if test_id is not None:
+                        require(isinstance(test_id, str) and TEST_ID.fullmatch(test_id))
+                        require(not re.search(r'[\x00-\x1f\x7f]', name))
+                    db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms,version,conditions,test_id) VALUES(?,?,?,?,?,?,?)',
+                               (session, name.strip(), self.client_address[0], timestamp, body['version'], flags, test_id))
+                    if test_id is not None:
+                        row = db.execute('SELECT test_id,participant_name FROM sessions WHERE session=?', (session,)).fetchone()
+                        require(row == (test_id, name.strip()))
                 else:
                     require(db.execute('SELECT 1 FROM sessions WHERE session=?', (session,)).fetchone())
                     if path == '/api/resume':
                         require(body['version'] == self.server.booking['version'])
-                        saved_version = db.execute('SELECT version FROM sessions WHERE session=?', (session,)).fetchone()[0]
+                        saved_version, test_id, name = db.execute(
+                            'SELECT version,test_id,participant_name FROM sessions WHERE session=?', (session,)).fetchone()
                         require(saved_version == body['version'])
+                        if 'test_id' in body or 'name' in body:
+                            require(test_id is not None and body.get('test_id') == test_id and body.get('name') == name)
                         attempt = body['attempt']
                         if attempt is not None:
                             identifier(attempt)

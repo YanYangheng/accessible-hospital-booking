@@ -44,6 +44,8 @@ let navigationRun = Date.now().toString(36)+Math.random().toString(36).slice(2);
 let navigationStep = 0;
 let backSource = null;
 let recoveryRecord = study.getProgress();
+let linkEntry = null;
+let linkEntryError = '';
 function readBrowserNavigation() {
   try { return window.history?.state?.booking; } catch { return null; }
 }
@@ -68,6 +70,8 @@ function pushBrowserEntry() {
 function clearTest() {
   study.clear();
   recoveryRecord=null;
+  linkEntry=null;
+  linkEntryError='';
   navigationRun=Date.now().toString(36)+Math.random().toString(36).slice(2);
   navigationStep=0;
   state=fresh();
@@ -89,6 +93,15 @@ function validProgress(snapshot) {
     (!saved.slot||!booking.dates[saved.slot.day]?.slots[saved.slot.index])) return false;
   return true;
 }
+function showRestoredTest(record) {
+  state={...fresh(),...record.snapshot.state};
+  scenario={...record.snapshot.scenario};history=[...record.snapshot.history];
+  navigationRun=record.snapshot.navigation?.run||navigationRun;
+  navigationStep=initialNavigation?.run===navigationRun ? initialNavigation.step : 0;
+  study.log('view',state.page,'background',{result:'resumed_page'});
+  render();view.scrollTop=record.snapshot.scrollTop||0;
+}
+
 function internalBack() {
   if(backSource) return;
   study.log('result',state.page,'back',{result:'back_requested',source:'page'});
@@ -182,138 +195,14 @@ const portraitObserver = new ResizeObserver(entries => {
 });
 
 function render(preserveScroll=false) {
+  if(state.page==='cover') recoveryRecord=study.getProgress();
   const previousScroll=view.scrollTop;
   const isCover=state.page==='cover';
   document.querySelector('.device').classList.toggle('test-cover',isCover);
   const isHome = state.page === 'home';
   topBar.innerHTML = `<div class="topline">${isHome ? '<img class="brand-icon" src="assets/hospital-logo.webp" alt="">' : `<button type="button" class="back" data-action="back" aria-label="返回">${icon('back')}</button>`}<div><strong>浙大二院</strong><small>互联网医院 · 就医服务</small></div><span class="badge">预约挂号</span></div>`;
   topBar.hidden=isCover;
-  let content = '';
-  let footer = '';
-  switch (state.page) {
-    case 'cover':
-      recoveryRecord=study.getProgress();
-      content=`<section class="cover-content"><div class="cover-symbol">${icon('calendar')}</div>
-      <h1>预约挂号系统v2原型测试</h1>
-      <p class="muted">本项目关注首次就诊时的线上建档与预约挂号体验。我们根据前期用户测试发现的问题制作了改进原型，希望通过本次体验了解改进后的流程是否清晰、操作是否顺畅。请按照任务要求操作，本次操作会被记录。</p>
-      ${recoveryRecord?`<div class="cover-actions"><p class="muted">检测到上次的测试记录，是否继续？</p>
-      ${btn('从离开位置继续','resume')}${btn('重新开始','restart','secondary')}
-      <p class="err" id="resume-error" role="alert"></p></div>`:`      <form id="test-entry" autocomplete="off">
-      <label class="field" for="participant-name">
-      ${withIcon('<input id="participant-name" aria-label="测试者姓名" name="participant" maxlength="40" required placeholder="请输入您的姓名">','person')}</label>
-      <p class="err" id="entry-error" role="alert"></p>
-      <button class="primary below" type="submit">进入测试</button></form>`}</section>`;
-      footer=btn('进入调试模式','debug','ghost');
-      break;
-    case 'home':
-      content = `<section class="hero"><span class="eyebrow">门诊服务</span>${artwork}<h1>预约挂号</h1><p>选择就诊时间，按提示完成首次就诊准备。</p>${btn('开始预约 '+icon('next'),'start')}</section>
-      <section class="section"><div class="row"><h2>就医服务</h2></div><div class="stack below">
-      ${choice('我的预约',state.receipt?'查看本次预约记录':'查看的预约状态','records','calendar')}
-      ${choice('首次就诊准备','了解线上建档和到院人工协助','guide:home','person')}</div></section>
-      <p class="footnote"></p>`;
-      break;
-    case 'campus':
-      content = progress(0)+intro('选择就诊院区','先选院区，再查看该院区的门诊号源。')+
-        `<div class="stack">${campusData.map(([name,address],index)=>choice(name,address,'campus:'+index,'pin')).join('')}</div>`;
-      break;
-    case 'department':
-      content = progress(0)+intro('选择就诊科室',esc(state.campus)+'')+
-        `<label class="field" for="search">搜索科室${withIcon('<input id="search" class="search" placeholder="例如：普内科" type="search">', "search")}</label>`+
-        `<div class="stack below" id="dept-list">${departmentList('')}</div>`;
-      break;
-    case 'doctors':
-      content=progress(state.recovery?3:0)+intro('选择医生和日期',esc(state.campus)+' · '+esc(state.dept));
-      if(state.recovery) content+=callout('已保留就诊资料','选择新的医生或日期后，可直接继续预约。');
-      content+=`<div class="booking-tabs" role="group" aria-label="预约方式">
-        <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button>
-        <button data-action="mode:doctor" aria-pressed="${state.mode==='doctor'}">按医生预约</button></div>`;
-      if(state.mode==='date') content+=dateChoices();
-      content+=`<div class="doctor-list">${booking.doctors.filter(d=>d.department===departments.indexOf(state.dept) && (state.mode==='doctor' || d.schedule[state.date]!=='off')).map(d=>`
-        <div class="doctor-entry"><article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
-        <div class="doctor-copy"><div class="doctor-heading"><h2>${d.name}</h2><span class="doctor-title">${d.title}</span></div><p class="doctor-bio">${d.bio}</p></div>
-        <button class="secondary ${state.mode==='date'&&d.schedule[state.date]==='full'?'fully-booked':''}" data-action="doctor:${d.id}" ${state.mode==='doctor' ? `aria-expanded="${state.doctor===d.id}" aria-controls="doctor-dates-${d.id}"` : ''} aria-label="${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}${d.name}" ${state.mode==='date'&&d.schedule[state.date]==='full'?'disabled':''}>${state.mode==='date'&&d.schedule[state.date]==='full'?'约满':'预约'}</button></article>
-        ${state.mode==='doctor'&&state.doctor===d.id ? `<section class="doctor-date-panel" id="doctor-dates-${d.id}"><h2>选择日期</h2>${dateChoices(true)}${d.schedule[state.date]==='available'?btn('下一步','doctor-next'):'<p class="muted below">该医生当天'+(d.schedule[state.date]==='full'?'已约满':'停诊')+'，请选择其他日期或医生。</p>'}</section>` : ''}</div>`).join('')}</div>`;
-      break;
-    case 'slots':
-      content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
-        `${doctorSummary()}
-        <div class="row"><h2>当天可选时段</h2></div>
-        <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
-          ? `<div class="card muted">${time} · 已不可预约</div>`
-          : choice(time,`${index<2?'上午':'下午'} · ${slotType(index)}`,'slot:'+index,clinicAt(index).icon,slotFee(index))).join('')}</div>
-        <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
-      break;
-    case 'login':
-      content = progress(1)+intro('登录账号','手机号码验证登录')+doctorSummary(state.slot)+
-        `<form id="login-form" class="card" autocomplete="off"><label class="field" for="phone">手机号码
-        ${withIcon(`<input id="phone" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入11位手机号" value="${esc(state.phone)}" required pattern="1[0-9]{10}">`, "phone")}</label>
-        <div class="sms-row"><label class="field" for="code">短信验证码${withIcon(`<input id="code" name="code" inputmode="numeric" maxlength="6" placeholder="请输入 6 位验证码" value="${esc(state.code)}" required pattern="[0-9]{6}">`, "code")}</label>
-        <div><button class="secondary" type="button" id="send-code" data-action="send">发送验证码</button></div></div>
-        <p id="sms-status" class="muted below" aria-live="polite">${smsStatus()}</p></form>`;
-      footer = '<button class="primary" type="submit" form="login-form">验证并继续</button>';
-      break;
-    case 'method':
-      content = progress(2)+intro('选择建档方式','首次在本院线上预约，需先建立就诊人档案。')+doctorSummary(state.slot)+
-        `<div class="stack">${choice('在线建档','一次核对并填写资料，完成后继续预约','archive','file')}
-        ${choice('到院人工协助','查看办理材料、地点和后续步骤','guide','person')}</div>`;
-      break;
-    case 'archive':
-      content = progress(2)+intro('首次就诊建档','完成建档后，您将返回预约确认。')+doctorSummary(state.slot)+
-        `<form id="archive-form" novalidate autocomplete="off"><section class="card"><h2>身份信息</h2><p class="muted">请准确填写身份信息。</p>
-        ${field('姓名','name',{attrs:'maxlength="20" placeholder="请输入姓名"'})}
-        ${field('证件号码（居民身份证）','id',{attrs:'maxlength="18" pattern="[0-9]{17}[0-9Xx]" placeholder="18 位身份证号码"'})}
-        <div class="form-grid">${field('性别','gender',{attrs:'readonly placeholder="自动识别"'})}${field('出生日期','birthday',{attrs:'readonly placeholder="自动识别"'})}</div>
-        </section>
-        <section class="card below"><h2>建档资料</h2><p class="muted">请补充就诊人资料。</p>
-        <div class="form-grid">${field('身高（厘米）','height',{type:'number',attrs:'min="30" max="250" step="0.1"'})}${field('体重（公斤）','weight',{type:'number',attrs:'min="2" max="350" step="0.1"'})}</div>
-        ${field('职业','job',{choices:booking.jobs})}
-        ${`<div class="field"><span id="region-label">所在地区</span>
-        ${withIcon(`<button id="field-region" class="region-control" type="button" aria-haspopup="dialog" aria-labelledby="region-label field-region" data-action="field-region">${esc(state.profile.region)}</button>`,'pin')}
-        <input type="hidden" name="region" value="${esc(state.profile.region)}"></div>`}
-        ${field('详细地址','address',{attrs:'maxlength="100" placeholder="请输入详细地址"'})}</section>
-        <div class="row wrap below">${btn('查看人工协助','guide','ghost')}</div></form>`;
-      footer = '<button class="primary" type="submit" form="archive-form">完成建档</button>';
-      break;
-    case 'expired':
-      content = progress(3)+intro('原号源已不可预约','请重新选择一个就诊时间。')+summary('已失效',state.expired)+
-        callout('建档已完成','您的就诊资料已保存。您可以直接在同一院区和科室换号。','warn');
-      footer = btn('查看同科室其他号源','recover');
-      break;
-    case 'confirm':
-      content = progress(3)+intro('确认预约信息','请核对就诊人和就诊时间。')+summary('待确认 · 尚未预约')+
-        `<section class="card"><h2>本次就诊</h2>${pairList([['就诊人',esc(state.profile.name)],['联系手机',esc(state.phone.slice(0,3)+'****'+state.phone.slice(-4))],['就诊档案','建档已完成'],['门诊类型',slotType(state.slot.index,state.slot.day)],['挂号费用',slotFee(state.slot.index,state.slot.day)]])}</section>
-        <p class="footnote">请核对信息后提交。</p>`;
-      footer = btn('提交预约','submit');
-      break;
-    case 'success':
-    case 'records':
-      content = state.receipt
-        ? intro(state.page==='success'?'预约成功':'我的预约','请按预约时段到院。')+summary('预约已确认')+
-          callout('就诊提醒','请提前到达院区，按医院实际安排报到候诊。','success')
-        : intro('我的预约','还没有预约记录。');
-      footer = btn('返回首页','home');
-      break;
-    case 'guide': {
-      const general=state.guideContext==='home'||!state.campus;
-      const campusIndex=campusData.findIndex(([name])=>name===state.campus);
-      const image=general?booking.guideImages.home:booking.guideImages.campuses[campusIndex];
-      const description=general
-        ? '首次就诊准备。准备身份证件和手机，在线核对身份并填写建档资料，确认医生、日期和时段，携带证件按预约安排到院。如需人工协助，可到所选院区门诊服务台咨询。具体安排以院区公告为准。'
-        : state.campus+'人工建档办理指引。携带本人有效身份证件，到门诊服务台说明需求，在工作人员协助下核对资料，完成建档后返回线上预约。具体办理地点和时间以院区公告为准。';
-      content=intro(general?'首次就诊准备':'到院人工协助',general?'了解建档、预约与到院就诊的基本步骤。':'适合希望在工作人员协助下建档的就诊人。')+
-        (general?'':callout('当前尚未预约','此处提供建档办理指引。完成办理后，可再次进入线上预约。','warn'))+
-        `<section class="card below guide-card"><img class="guide-image" src="${image}" width="1024" height="1536" alt="${esc(description)}" loading="lazy" decoding="async"></section>`;
-      footer=btn(history.at(-1)==='archive'?'返回继续填写':'返回上一页','back');
-      break;
-    }
-    case 'settings':
-      content = intro('','从首页启动下一次演示，统一任务情境。')+
-        `<section class="card"><label class="field"><span>建档完成时的号源状态</span><select id="expiry"><option value="0">原号源仍可用</option><option value="1" ${scenario.expiry?'selected':''}>原号源失效，触发重选</option></select></label>
-        <label class="field"><span>短信发送情境</span><select id="delayed"><option value="0">首次收到验证码</option><option value="1" ${scenario.delayed?'selected':''}>首次未收到，重发后收到</option></select></label>
-        <p class="footnote">开始新一轮时会清除当前表单和预约记录。验证码重发等待设为 30 秒。</p></section>`;
-      footer = btn('应用设置并返回首页','apply');
-      break;
-  }
+  const {content, footer} = pageViews[state.page]();
   portraitObserver.disconnect();
   view.innerHTML = content;
   view.querySelectorAll('.doctor-copy').forEach(copy => portraitObserver.observe(copy));
@@ -548,6 +437,9 @@ document.addEventListener('click',async event=>{
   if (!target) return;
   const [action,index]=target.dataset.action.split(':');
   switch(action) {
+    case 'link-retry': await enterLinkedTest();break;
+    case 'link-cancel':
+      linkEntry=null;linkEntryError='';removeLinkParameters();render();break;
     case 'restart':
       clearTest();render();
       break;
@@ -560,12 +452,7 @@ document.addEventListener('click',async event=>{
         if(notice) notice.textContent='暂时无法恢复，请检查网络后重试或重新开始。';
         break;
       }
-      state={...fresh(),...record.snapshot.state};
-      scenario={...record.snapshot.scenario};history=[...record.snapshot.history];
-      navigationRun=record.snapshot.navigation?.run||navigationRun;
-      navigationStep=initialNavigation?.run===navigationRun ? initialNavigation.step : 0;
-      study.log('view',state.page,'background',{result:'resumed_page'});
-      render();view.scrollTop=record.snapshot.scrollTop||0;
+      showRestoredTest(record);
       break;
     }
     case 'debug':
@@ -685,10 +572,6 @@ document.addEventListener('click',async event=>{
   }
 });
 study.setSnapshotReader(captureProgress);
-study.log("view",state.page);
-render();
-
-
 // Restrict touch zoom while preserving normal scrolling.
 document.addEventListener('gesturestart', event => event.preventDefault(), {passive:false});
 document.addEventListener('gesturechange', event => event.preventDefault(), {passive:false});

@@ -9,6 +9,7 @@ const study = (() => {
   const controllers = new Set();
   let snapshotReader, generation = 0, pendingReturn;
   let mode = 'inactive', session, attempt = null, sequence = 0;
+  let testId = null;
   let busy = false, timer, failures = 0, singleEvent = false;
   let pendingSession, pendingAttempt;
 
@@ -35,7 +36,7 @@ const study = (() => {
       }
     } catch { /* Private browsing may disable persistence. */ }
   }
-  function identity() { return mode === 'record' ? {session, attempt, sequence} : null; }
+  function identity() { return mode === 'record' ? {session, attempt, sequence, testId} : null; }
   function getProgress() {
     try {
       const record = JSON.parse(localStorage.getItem(progressKey));
@@ -59,7 +60,7 @@ const study = (() => {
     for (const controller of controllers) controller.abort();
     controllers.clear();
     pending.clear();
-    session = undefined; attempt = null; sequence = 0;
+    session = undefined; attempt = null; sequence = 0; testId = null;
     pendingSession = pendingAttempt = pendingReturn = null;
     failures = 0; singleEvent = false; busy = false;
     try {
@@ -67,18 +68,20 @@ const study = (() => {
       for (const key of keys) if (key.startsWith('booking.')) localStorage.removeItem(key);
     } catch { /* Storage can be disabled by the browser. */ }
   }
-  async function resume(record) {
+  async function resume(record, link = null) {
     if (!record || !online) return false;
     pause();
     const epoch = generation;
     pendingReturn ||= {session:record.identity.session, attempt:record.identity.attempt,
-      return_id:id(), client_ms:Date.now(), page:record.snapshot.state.page, version:record.version};
+      return_id:id(), client_ms:Date.now(), page:record.snapshot.state.page, version:record.version,
+      ...(link ? {test_id:link.testId, name:link.name} : {})};
     try {
       const response = await post('/api/resume', pendingReturn);
       if (!response.ok || epoch !== generation) return false;
       const result = await response.json();
       if (epoch !== generation || !Number.isSafeInteger(result.last_seq)) return false;
       session = record.identity.session; attempt = record.identity.attempt;
+      testId = record.identity.testId ?? null;
       restore();
       sequence = Math.max(record.identity.sequence, result.last_seq);
       for (const item of pending.values()) {
@@ -100,15 +103,16 @@ const study = (() => {
         headers:{'Content-Type':'application/json'}, keepalive:true});
     } finally { clearTimeout(timeout); controllers.delete(controller); }
   }
-  async function begin(name, debug = false, conditions = {expiry:false, delayed:false}) {
+  async function begin(name, debug = false, conditions = {expiry:false, delayed:false}, linkedTestId = null) {
     mode = 'inactive';
     attempt = null;
     pendingAttempt = null;
     clearTimeout(timer);
     if (debug) { clear(); mode = 'debug'; return true; }
     if (!online) return false;
-    if (!pendingSession || pendingSession.name !== name) {
-      pendingSession = {session:id(), name, started_ms:Date.now(), version:window.BOOKING_DATA.version, conditions};
+    if (!pendingSession || pendingSession.name !== name || (pendingSession.test_id ?? null) !== linkedTestId) {
+      pendingSession = {session:id(), name, started_ms:Date.now(), version:window.BOOKING_DATA.version, conditions,
+        ...(linkedTestId ? {test_id:linkedTestId} : {})};
     }
     const epoch = generation;
     try {
@@ -116,6 +120,7 @@ const study = (() => {
       const result = await post('/api/sessions', payload);
       if (!result.ok || epoch !== generation) return false;
       session = payload.session;
+      testId = linkedTestId;
       sequence = 0;
       pendingSession = null;
       mode = 'record';

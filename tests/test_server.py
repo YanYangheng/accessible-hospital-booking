@@ -68,7 +68,8 @@ class ServerTests(unittest.TestCase):
             return db.execute(sql).fetchall()
 
     def test_versioned_resources_revalidate_instead_of_reusing_stale_scripts(self):
-        for path in ('/', '/telemetry.js?v=20261109-boot-1', '/app.js?v=20261109-boot-1'):
+        for path in ('/', '/telemetry.js?v=20261109-links-1', '/app.js?v=20261109-links-1',
+                     '/startup.js?v=20261109-links-1', '/entry-pages.js', '/booking-pages.js', '/patient-pages.js'):
             with urlopen('http://127.0.0.1:%d%s' % (self.server.server_port, path)) as response:
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.headers['Cache-Control'], 'no-cache')
@@ -87,6 +88,21 @@ class ServerTests(unittest.TestCase):
         row = self.rows('SELECT participant_name,ip,version,conditions FROM sessions')[0]
         self.assertEqual(row[:3], ('参与者', '127.0.0.1', BOOKING['version']))
         self.assertTrue(json.loads(row[3])['expiry'])
+
+    def test_linked_session_checks_id_and_name_before_recording_resume(self):
+        linked = '9' * 36
+        begin = dict(session=linked, name='链接参与者', test_id='P03', started_ms=1000,
+                     version=BOOKING['version'], conditions={'expiry': False, 'delayed': False})
+        self.assertEqual(self.post('/api/sessions', dict(begin, test_id='bad id'))[0], 400)
+        self.assertEqual(self.post('/api/sessions', begin)[0], 204)
+        self.assertEqual(self.post('/api/sessions', dict(begin, name='其他人'))[0], 400)
+        body = dict(session=linked, attempt=None, return_id='8' * 36, client_ms=2000,
+                    page='home', version=BOOKING['version'], test_id='P03', name='链接参与者')
+        self.assertEqual(self.post('/api/resume', dict(body, name='其他人'))[0], 400)
+        self.assertEqual(self.post('/api/resume', dict(body, test_id='P04'))[0], 400)
+        self.assertEqual(self.rows('SELECT count(*) FROM session_returns'), [(0,)])
+        self.assertEqual(self.post('/api/resume', body), (200, {'last_seq': 0}))
+        self.assertIn(('P03', '链接参与者'), self.rows('SELECT test_id,participant_name FROM sessions'))
 
     def test_repeat_attempt_and_retry(self):
         self.assertEqual(self.post('/api/submissions', submission())[0], 204)

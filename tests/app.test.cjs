@@ -14,7 +14,8 @@ function environment() {
     ResizeObserver:class {observe(){} disconnect(){}},setTimeout,clearTimeout,
     study:{getProgress(){return null;},identity(){return null;},setSnapshotReader(){},selectAttempt(){},clear(){},pause(){},log(...args){logs.push(args);},async begin(){return true;},async beginAttempt(){return true;},async save(){return true;}}};
   vm.createContext(e);
-  for(const file of ['booking-data.js','regions.js','app.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),e);
+  for(const file of ['booking-data.js','regions.js','entry-pages.js','booking-pages.js','patient-pages.js','app.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),e);
+  node('.device');
   return {e,handlers,nodes,logs,run(code){return vm.runInContext(code,e);}};
 }
 
