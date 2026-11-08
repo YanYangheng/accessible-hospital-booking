@@ -127,8 +127,8 @@ function render(preserveScroll=false) {
       content=progress(state.recovery?3:0)+intro('选择医生和日期',esc(state.campus)+' · '+esc(state.dept));
       if(state.recovery) content+=callout('已保留就诊资料','选择新的医生或日期后，可直接继续预约。');
       content+=`<div class="booking-tabs" role="group" aria-label="预约方式">
-        <button data-action="mode:doctor" aria-pressed="${state.mode==='doctor'}">按医生预约</button>
-        <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button></div>`;
+        <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button>
+        <button data-action="mode:doctor" aria-pressed="${state.mode==='doctor'}">按医生预约</button></div>`;
       if(state.mode==='date') content+=dateChoices();
       content+=`<div class="doctor-list">${window.BOOKING_DOCTORS.filter(d=>d.department===departments.indexOf(state.dept) && (state.mode==='doctor' || d.schedule[state.date]!=='off')).map(d=>`
         <div class="doctor-entry"><article class="doctor-row"><span class="doctor-avatar" role="img" aria-label="${d.name}医生头像" style="background-position:${(d.portrait%5)*25}% ${Math.floor(d.portrait/5)*25}%"></span>
@@ -138,7 +138,7 @@ function render(preserveScroll=false) {
       break;
     case 'slots':
       content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
-        `<section class="card summary"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · 普通门诊</p>${btn('更换医生或日期','change-doctor','ghost')}</section>
+        `<section class="card summary doctor-summary"><span class="doctor-avatar" role="img" aria-label="${esc(window.BOOKING_DOCTORS[state.doctor].name)}医生头像" style="background-position:${(window.BOOKING_DOCTORS[state.doctor].portrait%5)*25}% ${Math.floor(window.BOOKING_DOCTORS[state.doctor].portrait/5)*25}%"></span><div class="doctor-summary-copy"><h2>${esc(window.BOOKING_DOCTORS[state.doctor].name)}</h2><p>${dates[state.date].join(' ')} · 普通门诊</p>${btn('更换医生或日期','change-doctor','ghost')}</div></section>
         <div class="row"><h2>当天可选时段</h2><span class="state">¥15.30</span></div>
         <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
           ? `<div class="card muted">${time} · 已不可预约</div>`
@@ -261,6 +261,7 @@ function refreshSms() {
   send.textContent = seconds ? `${seconds} 秒后可重发` : state.sends ? '重新发送' : '发送验证码';
 }
 function go(page, remember=true) {
+  if(page==='doctors' && state.page!=='doctors') state.mode='date';
   if (remember && page!==state.page) history.push(state.page);
   state.page=page;
   study.log("view",page);

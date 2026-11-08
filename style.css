@@ -88,3 +88,8 @@ html,body{touch-action:pan-x pan-y}
 
 .doctor-date-panel{margin:0 12px 14px;padding:14px 10px;background:#f3f7fc;border:1px solid #e1e9f3;border-radius:12px}
 .doctor-date-panel h2{font-size:16px}
+
+.doctor-summary{display:flex;align-items:center;gap:14px}
+.doctor-summary>.doctor-avatar{width:64px;height:64px;flex:none}
+.doctor-summary-copy{min-width:0;flex:1}
+.doctor-summary-copy .ghost{padding-left:0;text-align:left}
