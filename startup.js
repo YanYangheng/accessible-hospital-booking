@@ -2,13 +2,13 @@
 
 const debugPages = new Set([
   'home', 'campus', 'department', 'doctors', 'slots', 'login', 'method',
-  'archive', 'expired', 'confirm', 'success', 'records', 'guide', 'settings'
+  'archive', 'confirm', 'success', 'records', 'guide', 'settings'
 ]);
 
 function removeLinkParameters() {
   try {
     const url = new URL(window.location.href);
-    for (const key of ['mode', 'skip_cover', 'test_id', 'name', 'page']) url.searchParams.delete(key);
+    for (const key of ['mode', 'skip_cover', 'test_id', 'name', 'auto_id', 'page']) url.searchParams.delete(key);
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   } catch { /* Some embedded browsers restrict history changes. */ }
 }
@@ -22,15 +22,23 @@ function linkEntryMarkup() {
 
 async function enterLinkedTest() {
   const entry = linkEntry;
-  if (!entry?.valid) return;
+  if (!entry?.valid || entry.busy) return;
+  entry.busy = true;
   linkEntryError = '';
   render();
   const record = recoveryRecord;
-  const matching = record?.identity.testId === entry.testId && validProgress(record.snapshot);
-  const ok = matching
+  const matching = !entry.autoId && record?.identity.testId === entry.testId && validProgress(record.snapshot);
+  const page = entry.page || 'home';
+  let ok = matching
     ? await study.resume(record, entry)
-    : await study.begin(entry.name, false, scenario, entry.testId);
+    : entry.started || await study.begin(entry.name, false, scenario, entry.testId, entry.autoId);
   if (entry !== linkEntry) return;
+  if (ok && entry.autoId) {
+    entry.started = true;
+    if (!['home','records','settings'].includes(page)) ok = await study.beginAttempt(scenario, page);
+  }
+  if (entry !== linkEntry) return;
+  entry.busy = false;
   if (!ok) {
     linkEntryError = matching ? '无法恢复测试，请核对链接中的姓名，或检查网络后重试。' : '暂时无法进入测试，请检查网络后重试。';
     render();
@@ -40,8 +48,9 @@ async function enterLinkedTest() {
   linkEntry = null;
   if (matching) showRestoredTest(record);
   else {
-    study.log('result', 'cover', 'link-entry', {result:'link_started'});
-    go('home', false);
+    study.log('result', 'cover', 'link-entry', {result:'link_started', entry:entry.autoId?'auto_id':'named', destination:page});
+    if (!['home','campus','records','settings'].includes(page)) state = debugState(page);
+    go(page, false);
   }
 }
 
@@ -56,24 +65,23 @@ function debugState(page, randomize = false) {
   sample.date = sample.dateAnchor = day;
   sample.slot = {day, index:pick(booking.dates[day].slots.map((_, index) => index))};
 
-  if (['method','archive','guide','expired','confirm','success','records'].includes(page)) {
+  if (['method','archive','guide','confirm','success','records'].includes(page)) {
     sample.verified = true;
     sample.phone = '13800000000';
     sample.code = '012345';
   }
-  if (['expired','confirm','success','records'].includes(page)) {
+  if (['confirm','success','records'].includes(page)) {
     sample.archived = true;
     Object.assign(sample.profile, {name:'测试用户',id:'00000019601013000X',gender:'女',
       birthday:'1960-10-13',height:'160',weight:'56',job:booking.jobs[0],address:'演示路 1 号'});
   }
   if (page === 'guide') sample.guideContext = 'campus';
-  if (page === 'expired') sample.expired = {...sample.slot, doctor:sample.doctor};
   sample.receipt = page === 'success' || page === 'records';
   return sample;
 }
 
 async function startFromAddress() {
-  const mode = params.get('mode');
+  const mode = params.get('mode') ?? 'test';
   if (mode === 'debug') {
     const requested = params.get('page');
     const page = debugPages.has(requested) ? requested : 'home';
@@ -81,6 +89,14 @@ async function startFromAddress() {
     await study.begin('', true);
     if (page !== 'home' && page !== 'campus') state = debugState(page, page === 'confirm' && params.get('random') === '1');
     go(page, false);
+    return;
+  }
+  if (mode === 'test' && params.get('auto_id') === '1') {
+    const requested = params.get('page');
+    // Only a submitted reservation can enter the success page in a recorded test.
+    const page = debugPages.has(requested) && requested !== 'success' ? requested : 'home';
+    linkEntry = {testId:null, name:'', autoId:true, page, valid:true};
+    await enterLinkedTest();
     return;
   }
   if (mode === 'test' && params.get('skip_cover') === '1') {

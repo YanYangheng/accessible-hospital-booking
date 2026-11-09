@@ -103,24 +103,26 @@ const study = (() => {
         headers:{'Content-Type':'application/json'}, keepalive:true});
     } finally { clearTimeout(timeout); controllers.delete(controller); }
   }
-  async function begin(name, debug = false, conditions = {expiry:false, delayed:false}, linkedTestId = null) {
+  async function begin(name, debug = false, conditions = {delayed:false}, linkedTestId = null, autoId = false) {
     mode = 'inactive';
     attempt = null;
     pendingAttempt = null;
     clearTimeout(timer);
     if (debug) { clear(); mode = 'debug'; return true; }
     if (!online) return false;
-    if (!pendingSession || pendingSession.name !== name || (pendingSession.test_id ?? null) !== linkedTestId) {
+    if (!pendingSession || pendingSession.name !== name || (pendingSession.test_id ?? null) !== linkedTestId || Boolean(pendingSession.auto_id) !== autoId) {
       pendingSession = {session:id(), name, started_ms:Date.now(), version:window.BOOKING_DATA.version, conditions,
-        ...(linkedTestId ? {test_id:linkedTestId} : {})};
+        ...(autoId ? {auto_id:true} : linkedTestId ? {test_id:linkedTestId} : {})};
     }
     const epoch = generation;
     try {
       const payload = pendingSession;
       const result = await post('/api/sessions', payload);
       if (!result.ok || epoch !== generation) return false;
+      const assignedId = autoId ? (await result.json()).test_id : linkedTestId;
+      if (epoch !== generation || (autoId && (typeof assignedId !== 'string' || !/^AUTO-[a-f0-9]{32}$/.test(assignedId)))) return false;
       session = payload.session;
-      testId = linkedTestId;
+      testId = assignedId;
       sequence = 0;
       pendingSession = null;
       mode = 'record';
@@ -129,7 +131,7 @@ const study = (() => {
       return true;
     } catch { return false; }
   }
-  async function beginAttempt(conditions) {
+  async function beginAttempt(conditions, page = 'home') {
     if (mode === 'debug') return true;
     if (mode !== 'record') return false;
     pendingAttempt ||= {session, attempt:id(), started_ms:Date.now(), conditions};
@@ -140,7 +142,7 @@ const study = (() => {
       if (!result.ok || epoch !== generation) return false;
       attempt = payload.attempt;
       pendingAttempt = null;
-      log('result', 'home', 'start', {result:'attempt_started'});
+      log('result', page, 'start', {result:'attempt_started'});
       return true;
     } catch { return false; }
   }

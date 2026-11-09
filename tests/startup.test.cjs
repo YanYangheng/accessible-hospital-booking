@@ -17,9 +17,12 @@ function startup(lockedHistory = false, search = '', options = {}) {
   const env = {location:{protocol:'http:',search,href:'http://localhost/'+search},URL,URLSearchParams,AbortController,
     crypto:require('node:crypto').webcrypto,
     fetch:async (route, request)=>{
-      calls.push({route, body:JSON.parse(request.body)});
+      const body=JSON.parse(request.body);
+      calls.push({route, body});
       const ok=options.fail !== route;
-      return {ok,status:ok ? 204 : 400,json:async()=>route==='/api/resume'?{last_seq:0}:{accepted:[],rejected:[]}};
+      const result=route==='/api/resume' ? {last_seq:0} : route==='/api/sessions' && body.auto_id
+        ? {test_id:'AUTO-'+'1'.repeat(32)} : {accepted:[],rejected:[]};
+      return {ok,json:async()=>result};
     },
     localStorage:{getItem:key=>storage.get(key)??null,setItem:(k,v)=>storage.set(k,v),
       get length(){return storage.size;},key:i=>[...storage.keys()][i],removeItem:k=>storage.delete(k)},
@@ -60,7 +63,21 @@ test('valid formal link enters home and cannot deep link to confirmation',async(
     assert.equal(app.state().page,'home');
     assert.equal(app.calls[0].body.test_id,'P03');
     assert.equal(app.calls[0].body.name,'测试用户');
-    assert.equal(app.calls[0].body.conditions.expiry,true);
+    assert.equal(Object.hasOwn(app.calls[0].body.conditions,'expiry'),false);
+  } finally {app.stop();}
+});
+
+test('default test mode opens a recorded deep link with a server-assigned ID',async()=>{
+  const app=startup(false,'?auto_id=1&page=confirm');
+  await settle();
+  try {
+    assert.equal(app.state().page,'confirm');
+    assert.match(app.html(),/确认预约信息/);
+    assert.equal(app.calls[0].body.auto_id,true);
+    assert.equal(app.calls[0].body.name,'');
+    assert.equal(app.calls[1].route,'/api/attempts');
+    assert.ok(app.identity().attempt);
+    assert.equal(app.identity().testId,'AUTO-'+'1'.repeat(32));
   } finally {app.stop();}
 });
 
@@ -75,7 +92,7 @@ test('invalid and rejected links leave a usable cover',async()=>{
 });
 
 test('every debug deep link renders with deterministic data and no requests',async()=>{
-  for(const page of ['home','campus','department','doctors','slots','login','method','archive','expired','confirm','success','records','guide','settings','unknown']){
+  for(const page of ['home','campus','department','doctors','slots','login','method','archive','confirm','success','records','guide','settings','unknown']){
     const app=startup(false,'?mode=debug&page='+page,{storage:new Map([['booking.progress','{}'],['unrelated','value']])});
     await settle();
     assert.equal(app.state().page,page==='unknown'?'home':page);

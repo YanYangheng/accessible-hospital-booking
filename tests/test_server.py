@@ -130,6 +130,22 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.post('/api/resume', body), (200, {'last_seq': 0}))
         self.assertIn(('P03', '链接参与者'), self.rows('SELECT test_id,participant_name FROM sessions'))
 
+    def test_automatic_id_is_persisted_and_reused_after_retry(self):
+        body = dict(session='f' * 36, auto_id=True, started_ms=1000, version=BOOKING['version'],
+                    conditions={'delayed': False})
+        status, assigned = self.post('/api/sessions', body)
+        self.assertEqual(status, 200)
+        self.assertRegex(assigned['test_id'], r'^AUTO-[a-f0-9]{32}$')
+        self.assertEqual(self.post('/api/sessions', body), (200, assigned))
+        other = self.post('/api/sessions', dict(body, session='e' * 36))
+        self.assertEqual(other[0], 200)
+        self.assertNotEqual(other[1], assigned)
+        self.assertIn((assigned['test_id'], ''), self.rows('SELECT test_id,participant_name FROM sessions'))
+        self.assertEqual(self.post('/api/sessions', dict(body, name='其他人'))[0], 400)
+        self.assertEqual(self.post('/api/sessions', dict(body, test_id='P03'))[0], 400)
+        self.assertEqual(self.post('/api/attempts', dict(session=body['session'], attempt='d' * 36,
+                         started_ms=2000, conditions={'delayed': False}))[0], 204)
+
     def test_repeat_attempt_and_retry(self):
         self.assertEqual(self.post('/api/submissions', submission())[0], 204)
         self.assertEqual(self.post('/api/submissions', submission())[0], 204)

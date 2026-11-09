@@ -20,8 +20,7 @@ pageViews.department = () => {
 pageViews.doctors = () => {
   let content;
   let footer = '';
-  content=progress(state.recovery?3:0)+intro('选择医生和日期',esc(state.campus)+' · '+esc(state.dept));
-  if(state.recovery) content+=callout('已保留就诊资料','选择新的医生或日期后，可直接继续预约。');
+  content=progress(0)+intro('选择医生和日期',esc(state.campus)+' · '+esc(state.dept));
   content+=`<div class="booking-tabs" role="group" aria-label="预约方式">
     <button data-action="mode:date" aria-pressed="${state.mode==='date'}">按日期预约</button>
     <button data-action="mode:doctor" aria-pressed="${state.mode==='doctor'}">按医生预约</button></div>`;
@@ -37,23 +36,10 @@ pageViews.doctors = () => {
 pageViews.slots = () => {
   let content;
   let footer = '';
-  content=progress(state.recovery?3:0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
+  content=progress(0)+intro('选择就诊时间',esc(state.campus)+' · '+esc(state.dept))+
     `${doctorSummary()}
     <div class="row"><h2>当天可选时段</h2></div>
-    <div class="stack below">${times[state.date].map((time,index)=>state.expired?.day===state.date&&state.expired?.index===index&&state.expired?.doctor===state.doctor
-      ? `<div class="card muted">${time} · 已不可预约</div>`
-      : choice(time,`${index<2?'上午':'下午'} · ${slotType(index)}`,'slot:'+index,clinicAt(index).icon,slotFee(index))).join('')}</div>
+    <div class="stack below">${times[state.date].map((time,index)=>choice(time,`${index<2?'上午':'下午'} · ${slotType(index)}`,'slot:'+index,clinicAt(index).icon,slotFee(index))).join('')}</div>
     <p class="footnote">时段为预估候诊时间，以实际叫号为准。</p>`;
-  return {content, footer};
-};
-
-pageViews.expired = () => {
-  let content;
-  let footer = '';
-  content = progress(3)+intro('原号源已不可预约','请重新选择一个就诊时间。')+summary('已失效',state.expired)+
-    (state.offlineArchive
-      ? callout('需要线下建档','您可以在同一院区和科室换号，预约后再提前到院建档。','warn')
-      : callout('建档已完成','您的就诊资料已保存。您可以直接在同一院区和科室换号。','warn'));
-  footer = btn('查看同科室其他号源','recover');
   return {content, footer};
 };

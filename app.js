@@ -34,13 +34,13 @@ const paths = {
 const icon = key => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key]}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fresh = () => ({
-  page:'cover', guideContext:null, doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null, expired:null, recovery:false,
+  page:'cover', guideContext:null, doctor:null, mode:'date', campus:'', dept:'', date:0, dateAnchor:0, slot:null,
   verified:false, archived:false, offlineArchive:false, phone:'', code:'', sends:0, resendAt:0, receipt:false,
   profile:{name:'',id:'',gender:'',birthday:'',height:'',weight:'',job:'',region:defaultRegion.join(''),address:''}
 });
 let state = fresh();
 const params = new URLSearchParams(location.search);
-let scenario = {expiry:params.has('expiry'), delayed:params.has('delay')};
+let scenario = {delayed:params.has('delay')};
 let history = [];
 let navigationRun = Date.now().toString(36)+Math.random().toString(36).slice(2);
 let navigationStep = 0;
@@ -81,23 +81,32 @@ function clearTest() {
 }
 function validProgress(snapshot) {
   const saved=snapshot?.state;
-  const pages=['home','campus','department','doctors','slots','login','method','archive','expired','confirm','success','records','guide','settings'];
-  if(!saved||!pages.includes(saved.page)||!snapshot.scenario||!Array.isArray(snapshot.history)) return false;
-  if(typeof snapshot.scenario.expiry!=='boolean'||typeof snapshot.scenario.delayed!=='boolean') return false;
-  if(!snapshot.history.every(page=>pages.includes(page)||page==='cover')) return false;
+  const page=currentPage(saved?.page);
+  const pages=['home','campus','department','doctors','slots','login','method','archive','confirm','success','records','guide','settings'];
+  if(!saved||!pages.includes(page)||!snapshot.scenario||!Array.isArray(snapshot.history)) return false;
+  if(typeof snapshot.scenario.delayed!=='boolean') return false;
+  if(!snapshot.history.every(step=>pages.includes(currentPage(step))||step==='cover')) return false;
   if(!saved.profile||Object.keys(fresh().profile).some(key=>typeof saved.profile[key]!=='string')) return false;
   if(!Number.isInteger(saved.date)||!booking.dates[saved.date] ||
     !Number.isInteger(saved.dateAnchor)||!booking.dates[saved.dateAnchor]) return false;
   if(saved.doctor!==null && (!Number.isInteger(saved.doctor)||!booking.doctors[saved.doctor])) return false;
   if(saved.slot && (!Number.isInteger(saved.slot.day)||!Number.isInteger(saved.slot.index)||!booking.dates[saved.slot.day]?.slots[saved.slot.index])) return false;
-  if(['slots','login','method','archive','expired','confirm','success'].includes(saved.page)&&!booking.doctors[saved.doctor]) return false;
-  if(['login','method','archive','expired','confirm','success'].includes(saved.page)&&
+  if(['slots','login','method','archive','confirm','success'].includes(page)&&!booking.doctors[saved.doctor]) return false;
+  if(['login','method','archive','confirm','success'].includes(page)&&
     (!saved.slot||!booking.dates[saved.slot.day]?.slots[saved.slot.index])) return false;
   return true;
 }
+// Upgrade progress saved by browsers before the simulated branch was removed.
+function currentPage(page) { return page==='expired' ? 'confirm' : page; }
+function restoreSnapshot(snapshot) {
+  state={...fresh(),...snapshot.state,page:currentPage(snapshot.state.page)};
+  delete state.expired;
+  delete state.recovery;
+  scenario={delayed:snapshot.scenario.delayed};
+  history=snapshot.history.map(currentPage);
+}
 function showRestoredTest(record) {
-  state={...fresh(),...record.snapshot.state};
-  scenario={...record.snapshot.scenario};history=[...record.snapshot.history];
+  restoreSnapshot(record.snapshot);
   navigationRun=record.snapshot.navigation?.run||navigationRun;
   navigationStep=initialNavigation?.run===navigationRun ? initialNavigation.step : 0;
   study.log('view',state.page,'background',{result:'resumed_page'});
@@ -111,7 +120,6 @@ function internalBack() {
     syncBrowserEntry();backSource='page';window.history.back();return;
   }
   if(state.page==='confirm') {go('slots',false);return;}
-  if(state.page==='expired') {state.recovery=false;go('slots',false);return;}
   if(state.page==='success') {history=[];go('home',false);return;}
   if(state.page==='slots') {go('doctors',false);return;}
   go(history.pop()||'home',false);
@@ -129,12 +137,11 @@ window.addEventListener('popstate',event=>{
   const latest=state;
   const sameAttempt=entry.attempt===(study.identity()?.attempt??null);
   if(entry.snapshot && validProgress(entry.snapshot)) {
-    state={...fresh(),...entry.snapshot.state};
+    restoreSnapshot(entry.snapshot);
     if(sameAttempt) {
       state.profile={...state.profile,...latest.profile};
       for(const key of ['phone','code','verified','archived','offlineArchive','receipt']) state[key]=latest[key];
     }
-    scenario={...entry.snapshot.scenario};history=[...entry.snapshot.history];
   } else { state=fresh();history=[]; }
   navigationStep=entry.step;
   study.selectAttempt(entry.attempt);
@@ -162,12 +169,6 @@ function appointmentLines(selected) {
   const day = dates[selected.day].join(' ');
   const time = times[selected.day][selected.index];
   return `<p>${day} · ${time}<br>${esc(state.dept)} · ${slotType(selected.index, selected.day)}</p>`;
-}
-
-function summary(label, selected=state.slot) {
-  if (!selected) return '';
-  const doctor = booking.doctors[selected.doctor ?? state.doctor];
-  return `<section class="card summary"><span class="state">${label}</span><h2>${esc(doctor?.name || '预约信息')} · ${esc(state.campus)}</h2>${appointmentLines(selected)}</section>`;
 }
 
 function doctorSummary(selected=null) {
@@ -286,10 +287,7 @@ function go(page, remember=true) {
 function finishArchive(offline=false) {
   state.archived=true;
   state.offlineArchive=offline;
-  if (scenario.expiry && !state.expired) {
-    state.expired={...state.slot,doctor:state.doctor};
-    go('expired',false);
-  } else go('confirm',false);
+  go('confirm',false);
 }
 function reset() {
   state=fresh();
@@ -457,7 +455,7 @@ document.addEventListener('click',async event=>{
   switch(action) {
     case 'link-retry': await enterLinkedTest();break;
     case 'link-cancel':
-      linkEntry=null;linkEntryError='';removeLinkParameters();render();break;
+      study.pause();linkEntry=null;linkEntryError='';removeLinkParameters();render();break;
     case 'restart':
       clearTest();render();
       break;
@@ -493,8 +491,8 @@ document.addEventListener('click',async event=>{
       }
       break;
     case 'back': internalBack();break;
-    case 'campus': state.campus=campusData[index][0];state.expired=null;go('department');break;
-    case 'department': if(state.dept!==departments[index]) state.expired=null;state.dept=departments[index];state.date=0;state.dateAnchor=0;state.doctor=null;go('doctors');break;
+    case 'campus': state.campus=campusData[index][0];go('department');break;
+    case 'department': state.dept=departments[index];state.date=0;state.dateAnchor=0;state.doctor=null;go('doctors');break;
     case 'mode':
       state.mode=index;
       if(index==='doctor'&&state.doctor!==null&&booking.doctors[state.doctor].schedule[state.date]!=='available') {
@@ -555,12 +553,6 @@ document.addEventListener('click',async event=>{
       refreshSms();
       break;
     }
-    case 'recover':
-      state.recovery=true;
-      state.date=state.expired.day;
-      state.dateAnchor=state.date;
-      go('doctors',false);
-      break;
     case 'sample':
       Object.assign(state.profile,{name:'测试用户',id:'00000019601013000X',gender:'女',birthday:'1960-10-13',height:'160',weight:'56',job:'退休',region:'浙江省杭州市滨江区',address:'演示路 1 号'});
       for(const field of document.querySelector('#archive-form').elements) {
@@ -608,7 +600,7 @@ document.addEventListener('click',async event=>{
       break;
     }
     case 'apply':
-      scenario={expiry:document.querySelector('#expiry').value==='1',delayed:document.querySelector('#delayed').value==='1'};
+      scenario={delayed:document.querySelector('#delayed').value==='1'};
       reset();
       break;
   }

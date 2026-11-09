@@ -11,6 +11,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parent
 STATIC = {'/', '/index.html', '/app.js', '/style.css', '/telemetry.js', '/booking-data.js',
@@ -38,7 +39,7 @@ def identifier(value):
 
 
 def conditions(value):
-    require(isinstance(value, dict) and set(value) == {'expiry', 'delayed'})
+    require(isinstance(value, dict) and value.keys() in ({'delayed'}, {'expiry', 'delayed'}))
     require(all(type(flag) is bool for flag in value.values()))
     return json.dumps(value, sort_keys=True)
 
@@ -206,19 +207,33 @@ class Handler(SimpleHTTPRequestHandler):
             result = None
             with closing(sqlite3.connect(self.server.database, timeout=10)) as db, db:
                 if path == '/api/sessions':
-                    name, timestamp = body['name'], body['started_ms']
-                    require(isinstance(name, str) and 1 <= len(name.strip()) <= 40 and type(timestamp) is int and timestamp > 0)
+                    timestamp = body['started_ms']
+                    require(type(timestamp) is int and timestamp > 0)
+                    auto_id = body.get('auto_id', False)
+                    require(type(auto_id) is bool)
+                    name = body.get('name', '')
+                    require(isinstance(name, str))
+                    require((not name.strip() and 'test_id' not in body) if auto_id else 1 <= len(name.strip()) <= 40)
                     require(body['version'] == self.server.booking['version'])
                     flags = conditions(body['conditions'])
                     test_id = body.get('test_id')
                     if test_id is not None:
                         require(isinstance(test_id, str) and TEST_ID.fullmatch(test_id))
                         require(not re.search(r'[\x00-\x1f\x7f]', name))
+                    name = name.strip()
+                    if auto_id:
+                        test_id = 'AUTO-' + uuid4().hex
                     db.execute('INSERT OR IGNORE INTO sessions(session,participant_name,ip,started_ms,version,conditions,test_id) VALUES(?,?,?,?,?,?,?)',
-                               (session, name.strip(), self.source_ip(), timestamp, body['version'], flags, test_id))
-                    if test_id is not None:
-                        row = db.execute('SELECT test_id,participant_name FROM sessions WHERE session=?', (session,)).fetchone()
-                        require(row == (test_id, name.strip()))
+                               (session, name, self.source_ip(), timestamp, body['version'], flags, test_id))
+                    if auto_id or test_id is not None:
+                        saved_id, saved_name = db.execute(
+                            'SELECT test_id,participant_name FROM sessions WHERE session=?', (session,)).fetchone()
+                        require(saved_name == name)
+                        if auto_id:
+                            require(saved_id is not None and re.fullmatch(r'AUTO-[a-f0-9]{32}', saved_id))
+                            result = {'test_id': saved_id}
+                        else:
+                            require(saved_id == test_id)
                 else:
                     require(db.execute('SELECT 1 FROM sessions WHERE session=?', (session,)).fetchone())
                     if path == '/api/resume':
